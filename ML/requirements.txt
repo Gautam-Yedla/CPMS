@@ -1,0 +1,22 @@
+# Core Dependencies
+opencv-python-headless
+numpy
+pandas
+pyyaml
+shapely # For geometric operations (Polygons)
+
+# Deep Learning / Computer Vision
+ultralytics # YOLOv8 for detection and tracking
+torch
+torchvision
+
+# Visualization & Annotations
+supervision # Great for computer vision utilities (zones, counting, annotator)
+matplotlib
+
+# Other
+lapx # Linear Assignment Problem solver (needed for ByteTrack/SORT)
+filterpy # Kalman filter implementation (if custom tracking needed)
+scikit-learn
+notebook
+ipykernel

@@ -1,0 +1,88 @@
+# Application Settings
+app:
+  name: "CPMS - Level 1 Monitor"
+  debug: true
+  save_annotated_video: true
+  output_path: "data/processed/output.mp4"
+  status_output_path: "data/processed/status.json"
+  history_log_path: "data/processed/detections_history.jsonl"
+
+# Input Configuration (Multi-Source Fail-Safe)
+input:
+  width: 1280
+  height: 720
+  fps: 30
+  sources:
+    primary:
+      type: "video" # rtsp, webcam, video, image
+      path: "data/raw/large-vecteezy_parking-lot-movement_1623435_large.mp4" # Path or URL
+      # path: "data/raw/parking_lot.jpg" # Example for image type
+      # path: "rtsp://admin:password@192.168.1.100:554/stream"
+    fallback:
+      type: "webcam" # webcam, image
+      path: 0 # Webcam ID or Image path
+      timeout: 5 # Seconds to wait before switching back to primary
+
+# Preprocessing (Enhancement)
+preprocessing:
+  enable_clahe: true  # Contrast Limited Adaptive Histogram Equalization
+  gamma_correction: 1.2 # >1 for brighter, <1 for darker
+
+# Model Configuration
+model:
+  path: "models/checkpoints/yolov8m.pt" # Balanced for video (Medium)
+  device: "cuda" # or "cpu" if no GPU available
+  conf_threshold: 0.15 
+  iou_threshold: 0.60
+  imgsz: 960         # Optimized resolution for video speed
+  classes: [1, 2, 3, 5, 7] # COCO: 1=bicycle, 2=car, 3=motorcycle, 5=bus, 7=truck
+  color_map:
+    bicycle: "#00FF00" # Green
+    car: "#0000FF"     # Blue
+    motorcycle: "#FFFF00" # Yellow
+    bus: "#FFA500"     # Orange
+    truck: "#FF0000"   # Red
+
+# Tracking Configuration (BoT-SORT / ByteTrack via Ultralytics)
+tracking:
+  tracker_type: "bytetrack.yaml" # or botsort.yaml
+  persist: true
+
+# Entry/Exit Gates (Virtual Lines)
+gates:
+  - id: "main_entry"
+    type: "entry"
+    start: [50, 300]
+    end: [300, 300]
+  - id: "main_exit"
+    type: "exit"
+    start: [900, 300]
+    end: [1200, 300]
+
+# Zone Configuration (No Parking Lines - Logical Zones)
+zones:
+  - id: "zone_A"
+    name: "General Parking"
+    color: [0, 255, 0] # BGR
+    coordinates: [[50, 50], [400, 50], [400, 400], [50, 400]] # Replace with actual coordinates of your video
+    capacity: 10
+    type: "general"
+  
+  - id: "zone_B"
+    name: "Reserved Parking"
+    color: [0, 0, 255] # BGR
+    coordinates: [[450, 50], [800, 50], [800, 400], [450, 400]]
+    capacity: 5
+    type: "reserved"
+
+# Visualization Settings
+visualization:
+  text_thickness: 2
+  text_scale: 0.8
+  line_thickness: 2
+
+# Training & Pipeline Settings
+training:
+  collector_path: "data/raw/new_samples"
+  sampling_conf_threshold: 0.4 # Collect if confidence is below this
+  model_save_path: "models/checkpoints/best_custom.pt"

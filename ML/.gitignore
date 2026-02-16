@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+env/
+
+# Data
+data/raw/*
+data/processed/*
+data/interim/*
+data/external/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/interim/.gitkeep
+!data/external/.gitkeep
+
+# Models
+models/checkpoints/*
+models/deployed/*
+!models/checkpoints/.gitkeep
+!models/deployed/.gitkeep
+
+# Notebooks
+.ipynb_checkpoints/
