@@ -7,7 +7,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from ultralytics import YOLO
+try:
+    from ultralytics import YOLO
+    HAS_YOLO = True
+except ImportError:
+    HAS_YOLO = False
+    print("[WARN] ultralytics (YOLO) not found. Local models will be disabled.")
 import os
 import yaml
 from dotenv import load_dotenv
@@ -46,36 +51,42 @@ except ImportError:
 # 2. Local YOLO Vehicle Model (yolo11l — for comparison logging)
 vehicle_model = None
 vehicle_model_path = os.path.join(os.path.dirname(__file__), '../', config['model']['path'])
-if os.path.exists(vehicle_model_path):
+if HAS_YOLO and os.path.exists(vehicle_model_path):
     try:
         vehicle_model = YOLO(vehicle_model_path)
         print(f"[INIT] Local vehicle model loaded: {vehicle_model_path}")
     except Exception as e:
         print(f"[INIT] Failed to load vehicle model: {e}")
+elif not HAS_YOLO:
+    print("[INIT] Vehicle model skipped (YOLO not available).")
 else:
     print(f"[INIT] Vehicle model not found at: {vehicle_model_path}")
 
 # 3. Local Parking Model — PK-best.pt
 pk_best_model = None
 pk_best_path = os.path.join(os.path.dirname(__file__), '../models/checkpoints/parking-slots/PK-best.pt')
-if os.path.exists(pk_best_path):
+if HAS_YOLO and os.path.exists(pk_best_path):
     try:
         pk_best_model = YOLO(pk_best_path)
         print(f"[INIT] PK-best parking model loaded: {pk_best_path}")
     except Exception as e:
         print(f"[INIT] Failed to load PK-best model: {e}")
+elif not HAS_YOLO:
+    print("[INIT] PK-best model skipped (YOLO not available).")
 else:
     print(f"[INIT] PK-best model not found at: {pk_best_path}")
 
 # 4. Local Parking Model — best.pt
 best_model = None
 best_path = os.path.join(os.path.dirname(__file__), '../models/checkpoints/parking-slots/best.pt')
-if os.path.exists(best_path):
+if HAS_YOLO and os.path.exists(best_path):
     try:
         best_model = YOLO(best_path)
         print(f"[INIT] Best parking model loaded: {best_path}")
     except Exception as e:
         print(f"[INIT] Failed to load best model: {e}")
+elif not HAS_YOLO:
+    print("[INIT] Best model skipped (YOLO not available).")
 else:
     print(f"[INIT] Best model not found at: {best_path}")
 
