@@ -6,29 +6,44 @@ dotenv.config();
 const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
 
 export interface Detection {
-  bbox: number[];
+  type: string;
   confidence: number;
-  class: string;
-  class_id: number;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface MLResponse {
-  detections: Detection[];
-  count: number;
-  timestamp: string;
+  vehicles: Detection[];
+  parking?: {
+    totalSlots: number;
+    occupied: number;
+    available: number;
+    slots: any[];
+  };
+  local_results?: {
+    pk_best: any;
+    best: any;
+    comparison: any;
+  };
 }
 
 export class MLBridgeService {
   /**
    * Sends a base64 encoded frame to the ML service for processing
    */
-  static async processFrame(base64Image: string, timestamp?: string): Promise<MLResponse> {
+  static async processFrame(base64Image: string, timestamp?: string, isUpload: boolean = false, detectionType: string = 'all'): Promise<MLResponse> {
     try {
       const response = await axios.post(`${ML_API_URL}/process_frame`, {
         image: base64Image,
-        timestamp: timestamp || new Date().toISOString()
+        timestamp: timestamp || new Date().toISOString(),
+        is_upload: isUpload,
+        detection_type: detectionType
       }, {
-        timeout: 5000 // ML can be slow
+        timeout: 60000 // Increased timeout to 60 seconds to allow Gemini API to respond
       });
 
       return response.data;

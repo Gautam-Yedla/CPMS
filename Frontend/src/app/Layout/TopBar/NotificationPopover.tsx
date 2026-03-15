@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
+import { Popover } from '@mui/material';
 import { 
   Bell, 
   CheckCheck, 
@@ -20,28 +21,29 @@ interface Notification {
 }
 
 interface NotificationPopoverProps {
-  isOpen: boolean;
+  anchorEl: HTMLElement | null;
   onClose: () => void;
   notifications: Notification[];
   loading: boolean;
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
+  basePath: string;
 }
 
 const NotificationPopover: React.FC<NotificationPopoverProps> = ({ 
-  isOpen, 
+  anchorEl, 
   onClose, 
   notifications, 
   loading,
   onMarkRead,
-  onMarkAllRead
+  onMarkAllRead,
+  basePath
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  if (!isOpen) return null;
+  const isOpen = Boolean(anchorEl);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -62,46 +64,44 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   };
 
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        onClick={onClose}
-        style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          zIndex: 999 
-        }} 
-      />
-
+    <Popover
+      open={isOpen}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: 'right',
+      }}
+      transformOrigin={{
+        vertical: 'top',
+        horizontal: 'right',
+      }}
+      disableScrollLock
+      PaperProps={{
+        style: {
+          width: '380px',
+          backgroundColor: theme.palette.background.paper,
+          borderRadius: '20px',
+          marginTop: '10px',
+          boxShadow: isDark ? '0 10px 30px rgba(0,0,0,0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          border: isDark ? `1px solid ${theme.palette.divider}` : '1px solid rgba(0,0,0,0.05)',
+          overflow: 'hidden',
+          animation: 'popIn 0.2s ease-out'
+        }
+      }}
+    >
       <div style={{
-        position: 'absolute',
-        top: '100%',
-        right: 0,
-        width: '380px',
-        backgroundColor: theme.palette.background.paper,
-        borderRadius: '20px',
-        marginTop: '10px',
-        boxShadow: isDark ? '0 10px 30px rgba(0,0,0,0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        border: isDark ? `1px solid ${theme.palette.divider}` : '1px solid rgba(0,0,0,0.05)',
-        zIndex: 1000,
-        overflow: 'hidden',
-        animation: 'popIn 0.2s ease-out'
+        padding: '1.25rem 1.5rem',
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)'
       }}>
-        <div style={{
-          padding: '1.25rem 1.5rem',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)'
-        }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: theme.palette.text.primary }}>Notifications</h3>
-            <span style={{ fontSize: '0.75rem', color: theme.palette.text.secondary }}>You have {unreadCount} unread messages</span>
-          </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: theme.palette.text.primary }}>Notifications</h3>
+          <span style={{ fontSize: '0.75rem', color: theme.palette.text.secondary }}>You have {unreadCount} unread messages</span>
+        </div>
           {unreadCount > 0 && (
             <button 
               onClick={onMarkAllRead}
@@ -173,7 +173,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
         </div>
 
         <div style={{ padding: '1rem', textAlign: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)' }}>
-          <Link to="/student/notifications" onClick={onClose} style={{ textDecoration: 'none' }}>
+          <Link to={`${basePath}/notifications`} onClick={onClose} style={{ textDecoration: 'none' }}>
             <button style={{
               fontSize: '0.875rem',
               fontWeight: 700,
@@ -191,17 +191,16 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
             </button>
           </Link>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes popIn {
-          from { opacity: 0; transform: translateY(-10px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .notif-item:hover { background-color: ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'}; }
-        .hover-text-primary:hover { color: ${theme.palette.primary.main} !important; }
-      `}</style>
-    </>
+        <style>{`
+          @keyframes popIn {
+            from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          .notif-item:hover { background-color: ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'}; }
+          .hover-text-primary:hover { color: ${theme.palette.primary.main} !important; }
+        `}</style>
+      </Popover>
   );
 };
 

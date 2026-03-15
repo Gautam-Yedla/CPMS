@@ -1,7 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams } from '@mui/x-data-grid';
-import { Box, Typography, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-import { Plus, MessageSquare } from 'lucide-react';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Chip, 
+  Button, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions,
+  TextField,
+  MenuItem, 
+  useTheme,
+  Fade,
+  InputAdornment,
+  Avatar
+} from '@mui/material';
+import { Plus, MessageSquare, Clock, AlertTriangle, Search, Flag, Tag, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { api } from '@services/api';
 import ErrorBoundary from '@shared/components/ErrorBoundary';
@@ -22,9 +37,11 @@ interface Ticket {
 }
 
 const SupportTicketsPageContent: React.FC = () => {
+  const theme = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // New Ticket State
   const [newTicket, setNewTicket] = useState({ subject: '', message: '', priority: 'medium' });
@@ -37,17 +54,13 @@ const SupportTicketsPageContent: React.FC = () => {
     try {
       setLoading(true);
       const data = await api.fetchTickets();
-      console.log('Support Tickets API Response:', data); // Debugging
-
       if (Array.isArray(data)) {
           setTickets(data);
       } else {
-          console.error('API did not return an array:', data);
           setTickets([]);
           toast.error('Received invalid data from server');
       }
     } catch (error) {
-      console.error('Error fetching tickets:', error);
       toast.error('Failed to load tickets');
       setTickets([]);
     } finally {
@@ -67,13 +80,12 @@ const SupportTicketsPageContent: React.FC = () => {
       }
       
       await api.createTicket(newTicket);
-      toast.success('Ticket created successfully');
+      toast.success('Ticket submitted successfully');
       setOpenDialog(false);
       setNewTicket({ subject: '', message: '', priority: 'medium' });
       fetchTickets();
     } catch (error) {
-      console.error('Error creating ticket:', error);
-      toast.error('Failed to create ticket');
+      toast.error('Failed to submit ticket');
     }
   };
 
@@ -91,194 +103,373 @@ const SupportTicketsPageContent: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'success';
-      case 'pending': return 'warning';
-      case 'closed': return 'default';
-      default: return 'default';
+      case 'open': return theme.palette.success.main;
+      case 'pending': return theme.palette.warning.main;
+      case 'closed': return theme.palette.text.disabled;
+      default: return theme.palette.text.disabled;
     }
   };
 
   const getPriorityColor = (priority: string) => {
       switch (priority) {
-          case 'high': return 'error';
-          case 'medium': return 'info';
-          case 'low': return 'success';
-          default: return 'default';
+          case 'high': return theme.palette.error.main;
+          case 'medium': return theme.palette.info.main;
+          case 'low': return theme.palette.success.main;
+          default: return theme.palette.text.disabled;
       }
   };
 
-  const columns: GridColDef[] = [
-    { field: 'subject', headerName: 'Subject', flex: 1, minWidth: 200 },
-    { field: 'category', headerName: 'Category', width: 140 }, // Added category column
-    { 
-        field: 'profiles', 
-        headerName: 'User', 
-        width: 180,
-        valueGetter: (value: any, row: Ticket) => {
-            return row?.profiles?.full_name || 'Unknown';
-        }
-    },
-    { 
-      field: 'status', 
-      headerName: 'Status', 
-      width: 120,
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip 
-            label={params.value as string} 
-            color={getStatusColor(params.value as string) as any} 
-            size="small" 
-            variant="outlined" 
-            sx={{ textTransform: 'capitalize' }}
-        />
-      )
-    },
-    { 
-      field: 'priority', 
-      headerName: 'Priority', 
-      width: 120,
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip 
-            label={params.value as string} 
-            color={getPriorityColor(params.value as string) as any} 
-            size="small" 
-            sx={{ textTransform: 'capitalize' }}
-        />
-      )
-    },
-    { 
-      field: 'created_at', 
-      headerName: 'Created At', 
-      width: 180,
-      valueFormatter: (value: any) => {
-          if (!value) return '-';
-          try {
-             return new Date(value).toLocaleString();
-          } catch (e) {
-             return 'Invalid Date';
-          }
-      }
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      renderCell: (params: GridRenderCellParams) => (
-         <Button 
-            startIcon={<MessageSquare size={16} />} 
-            size="small" 
-            onClick={() => { setSelectedTicket(params.row); setViewDialogOpen(true); }}
-         >
-             View
-         </Button>
-      ),
-    },
-  ];
+  const filteredTickets = tickets.filter(t => 
+    t.subject.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    t.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <Box sx={{ p: 3, height: '85vh', display: 'flex', flexDirection: 'column' }}>
+    <Box p={2} minHeight="calc(100vh - 100px)" display="flex" flexDirection="column">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" fontWeight="600" color="text.primary">
-          Support Tickets
-        </Typography>
-        <Button variant="contained" startIcon={<Plus />} onClick={() => setOpenDialog(true)}>
-          New Ticket
-        </Button>
+        <div>
+          <Typography fontWeight="700" sx={{ fontSize: '1.875rem', color: theme.palette.text.primary, mb: 0.5 }}>
+            Support Tickets
+          </Typography>
+          <Typography variant="body1" color="text.secondary">Review and respond to system and campus assistance requests.</Typography>
+        </div>
+        <Box display="flex" gap={2} alignItems="center">
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              px: 2, 
+              py: 0.75, 
+              borderRadius: '12px',
+              border: `1px solid ${theme.palette.divider}`,
+              background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
+              backdropFilter: 'blur(10px)',
+              width: '320px'
+            }}
+          >
+            <TextField 
+              variant="standard" 
+              placeholder="Search requests by subject or user..." 
+              fullWidth 
+              InputProps={{ 
+                disableUnderline: true, 
+                style: { fontSize: '0.95rem' },
+                startAdornment: <InputAdornment position="start"><Search size={18} color={theme.palette.text.secondary} /></InputAdornment>
+              }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Paper>
+          <Button 
+            variant="contained" 
+            startIcon={<Plus />} 
+            onClick={() => setOpenDialog(true)}
+            sx={{ 
+              borderRadius: '12px', 
+              textTransform: 'none', 
+              fontWeight: 700,
+              px: 3,
+              height: '42px',
+              boxShadow: `0 8px 16px ${theme.palette.primary.main}40`
+            }}
+          >
+            Submit Ticket
+          </Button>
+        </Box>
       </Box>
 
-      <Paper sx={{ flex: 1, width: '100%', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
-        <DataGrid
-          rows={tickets}
-          columns={columns}
-          loading={loading}
-          // IMPORTANT: Explicitly use id property
-          getRowId={(row) => row.id} 
-          initialState={{
-            pagination: { paginationModel: { pageSize: 10 } },
-            sorting: { sortModel: [{ field: 'created_at', sort: 'desc' }] }
+      {/* Masonry Grid of Tickets */}
+      {loading ? (
+         <Typography color="text.secondary" textAlign="center" py={4}>Loading support requests...</Typography>
+      ) : filteredTickets.length === 0 ? (
+         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={8} sx={{ opacity: 0.5 }}>
+            <MessageSquare size={64} style={{ marginBottom: '16px' }} />
+            <Typography variant="h6">No tickets found</Typography>
+         </Box>
+      ) : (
+        <Box 
+          sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', 
+            gap: 3 
           }}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          slots={{ toolbar: GridToolbar }}
-          sx={{
-            border: 'none',
-            '& .MuiDataGrid-cell:focus': { outline: 'none' },
-          }}
-        />
-      </Paper>
+        >
+          {filteredTickets.map((ticket) => {
+            const statusColor = getStatusColor(ticket.status);
+            const priorityColor = getPriorityColor(ticket.priority);
 
-      {/* Create Ticket Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Support Ticket</DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            return (
+              <Fade in={true} key={ticket.id}>
+                <Paper
+                  onClick={() => { setSelectedTicket(ticket); setViewDialogOpen(true); }}
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: '20px',
+                    border: `1px solid ${theme.palette.divider}`,
+                    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      boxShadow: `0 12px 24px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)'}`,
+                      borderColor: statusColor
+                    }
+                  }}
+                >
+                  {/* Decorative Left Border based on priority */}
+                  <Box 
+                    sx={{ 
+                      position: 'absolute', 
+                      top: 0, 
+                      bottom: 0,
+                      left: 0, 
+                      width: '4px', 
+                      background: priorityColor
+                    }} 
+                  />
+
+                  {/* Top Row: User + Status/Priority */}
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                    <Box display="flex" alignItems="center" gap={1.5}>
+                      <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem', bgcolor: `${priorityColor}20`, color: priorityColor, fontWeight: 700 }}>
+                        {ticket.profiles?.full_name?.charAt(0) || 'U'}
+                      </Avatar>
+                      <Box>
+                         <Typography variant="body2" fontWeight="700" color="text.primary">{ticket.profiles?.full_name || 'Unknown User'}</Typography>
+                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                           <Clock size={12} /> {new Date(ticket.created_at).toLocaleDateString()}
+                         </Typography>
+                      </Box>
+                    </Box>
+                    <Box display="flex" gap={1}>
+                       <Chip 
+                         icon={<AlertTriangle size={12} />} 
+                         label={ticket.priority} 
+                         size="small" 
+                         sx={{ 
+                           height: 22, 
+                           fontWeight: 700, 
+                           fontSize: '0.65rem', 
+                           textTransform: 'uppercase',
+                           background: `${priorityColor}15`,
+                           color: priorityColor,
+                           border: `1px solid ${priorityColor}30`
+                         }} 
+                       />
+                       <Chip 
+                         icon={ticket.status === 'closed' ? <CheckCircle2 size={12} /> : <Tag size={12} />} 
+                         label={ticket.status} 
+                         size="small" 
+                         sx={{ 
+                           height: 22, 
+                           fontWeight: 700, 
+                           fontSize: '0.65rem', 
+                           textTransform: 'uppercase',
+                           background: `${statusColor}15`,
+                           color: statusColor,
+                           border: `1px solid ${statusColor}30`,
+                           opacity: ticket.status === 'closed' ? 0.7 : 1
+                         }} 
+                       />
+                    </Box>
+                  </Box>
+
+                  {/* Mid Row: Subject + Message Snippet */}
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="h6" fontWeight="800" sx={{ lineHeight: 1.3, mb: 1, fontSize: '1.1rem' }}>
+                      {ticket.subject}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        lineHeight: 1.6
+                      }}
+                    >
+                      {ticket.message}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Fade>
+            );
+          })}
+        </Box>
+      )}
+
+      {/* Premium Create Ticket Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        TransitionComponent={Fade}
+        PaperProps={{ 
+          sx: { 
+            borderRadius: '24px',
+            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
+            backgroundImage: 'none',
+            boxShadow: theme.palette.mode === 'dark' ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.1)'
+          } 
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem', p: 3, pb: 2, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: `1px solid ${theme.palette.divider}` }}>
+          <Box sx={{ p: 1, borderRadius: '8px', background: `${theme.palette.primary.main}1A`, color: theme.palette.primary.main, display: 'flex' }}>
+            <MessageSquare size={20} />
+          </Box>
+          Create Support Request
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, pt: 3 }}>
+          <Box display="flex" flexDirection="column" gap={3}>
             <TextField
-              label="Subject"
+              label="Request Subject"
+              variant="filled"
               fullWidth
               value={newTicket.subject}
               onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
             />
-             <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                    value={newTicket.priority}
-                    label="Priority"
-                    onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
-                >
-                    <MenuItem value="low">Low</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="high">High</MenuItem>
-                </Select>
-            </FormControl>
             <TextField
-              label="Message"
+              label="Urgency Level"
+              select
+              variant="filled"
+              fullWidth
+              value={newTicket.priority}
+              onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
+              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
+            >
+                <MenuItem value="low">Low Priority (Standard Response)</MenuItem>
+                <MenuItem value="medium">Medium Priority (Requires Attention)</MenuItem>
+                <MenuItem value="high" sx={{ color: theme.palette.error.main, fontWeight: 700 }}>High Priority (Immediate Action)</MenuItem>
+            </TextField>
+            <TextField
+              label="Provide details..."
+              variant="filled"
               fullWidth
               multiline
-              rows={4}
+              rows={5}
               value={newTicket.message}
               onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
+              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
             />
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateTicket} disabled={!newTicket.subject || !newTicket.message}>
-            Submit Ticket
+        <DialogActions sx={{ p: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
+          <Button onClick={() => setOpenDialog(false)} color="inherit" sx={{ borderRadius: '10px', px: 3, fontWeight: 600 }}>Cancel</Button>
+          <Button 
+            onClick={handleCreateTicket} 
+            variant="contained" 
+            disabled={!newTicket.subject || !newTicket.message}
+            sx={{ 
+              borderRadius: '10px', 
+              px: 4, 
+              fontWeight: 700,
+              boxShadow: `0 8px 16px ${theme.palette.primary.main}40`
+            }}
+          >
+            Submit Request
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* View Ticket Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+      {/* Premium View/Respond Ticket Dialog */}
+      <Dialog 
+        open={viewDialogOpen} 
+        onClose={() => setViewDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        TransitionComponent={Fade}
+        PaperProps={{ 
+          sx: { 
+            borderRadius: '24px',
+            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
+            backgroundImage: 'none',
+            boxShadow: theme.palette.mode === 'dark' ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.1)'
+          } 
+        }}
+      >
           {selectedTicket && (
               <>
-                <DialogTitle>
-                    {selectedTicket.subject}
-                    <Typography variant="subtitle2" color="text.secondary">
-                        Ticket ID: {selectedTicket.id}
-                    </Typography>
+                <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem', p: 3, pb: 2, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: `1px solid ${theme.palette.divider}` }}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box sx={{ p: 1, borderRadius: '8px', background: `${getPriorityColor(selectedTicket.priority)}1A`, color: getPriorityColor(selectedTicket.priority), display: 'flex' }}>
+                      <Flag size={20} />
+                    </Box>
+                    <Box display="flex" flexDirection="column" gap={0.25}>
+                      {selectedTicket.subject}
+                      <Typography variant="caption" color="text.secondary" fontWeight="500">
+                        Request Tracker: #{selectedTicket.id.split('-')[0]}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Chip 
+                    label={selectedTicket.status} 
+                    sx={{ 
+                      height: 24, 
+                      fontWeight: 800, 
+                      fontSize: '0.7rem', 
+                      textTransform: 'uppercase',
+                      background: `${getStatusColor(selectedTicket.status)}20`,
+                      color: getStatusColor(selectedTicket.status)
+                    }} 
+                  />
                 </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                        <Box display="flex" gap={1} mb={1}>
-                             <Chip label={selectedTicket.priority} color={getPriorityColor(selectedTicket.priority) as any} size="small" />
-                             <Chip label={selectedTicket.status} color={getStatusColor(selectedTicket.status) as any} size="small" />
-                        </Box>
-                        <Typography variant="body1">{selectedTicket.message}</Typography>
-                        <Typography variant="caption" display="block" mt={1} color="text.secondary">
-                             By: {selectedTicket.profiles?.full_name || 'Unknown'} on {new Date(selectedTicket.created_at).toLocaleString()}
+                <DialogContent sx={{ p: 0 }}>
+                    {/* User Profile Strip */}
+                    <Box sx={{ p: 3, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', gap: 2, background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }}>
+                      <Avatar sx={{ width: 48, height: 48, fontWeight: 700, bgcolor: theme.palette.background.paper, color: theme.palette.text.primary, border: `1px solid ${theme.palette.divider}` }}>
+                        {selectedTicket.profiles?.full_name?.charAt(0) || 'U'}
+                      </Avatar>
+                      <Box flex={1}>
+                        <Typography variant="body1" fontWeight="700">{selectedTicket.profiles?.full_name || 'Unknown User'}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                           <Clock size={12} /> Submitted {new Date(selectedTicket.created_at).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    {/* Message Body */}
+                    <Box sx={{ p: 4, minHeight: '150px' }}>
+                        <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: theme.palette.text.primary }}>
+                          {selectedTicket.message}
                         </Typography>
                     </Box>
-                    
-                    {/* Admin Actions */}
-                    <Typography variant="h6" gutterBottom>Actions</Typography>
-                    <Box display="flex" gap={2}>
-                        <Button variant="outlined" color="success" onClick={() => handleUpdateStatus('open')}>Mark Open</Button>
-                        <Button variant="outlined" color="warning" onClick={() => handleUpdateStatus('pending')}>Mark Pending</Button>
-                        <Button variant="outlined" color="error" onClick={() => handleUpdateStatus('closed')}>Close Ticket</Button>
-                    </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+                {/* Resolution Actions Grid */}
+                <DialogActions sx={{ p: 3, background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 2 }}>
+                    <Typography variant="caption" fontWeight="700" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>Administrator Actions</Typography>
+                    <Box display="flex" gap={2}>
+                        <Button 
+                          variant={selectedTicket.status === 'open' ? 'contained' : 'outlined'}
+                          color="success" 
+                          onClick={() => handleUpdateStatus('open')}
+                          sx={{ flex: 1, borderRadius: '10px', py: 1.5, fontWeight: 700, boxShadow: selectedTicket.status === 'open' ? `0 4px 12px ${theme.palette.success.main}30` : 'none' }}>
+                          Mark as Open
+                        </Button>
+                        <Button 
+                          variant={selectedTicket.status === 'pending' ? 'contained' : 'outlined'}
+                          color="warning" 
+                          onClick={() => handleUpdateStatus('pending')}
+                          sx={{ flex: 1, borderRadius: '10px', py: 1.5, fontWeight: 700, boxShadow: selectedTicket.status === 'pending' ? `0 4px 12px ${theme.palette.warning.main}30` : 'none' }}>
+                          Wait / Pending
+                        </Button>
+                        <Button 
+                          variant={selectedTicket.status === 'closed' ? 'contained' : 'outlined'} color="inherit" 
+                          onClick={() => handleUpdateStatus('closed')}
+                          sx={{ flex: 1, borderRadius: '10px', py: 1.5, fontWeight: 700 }}>
+                          Resolve & Close
+                        </Button>
+                    </Box>
                 </DialogActions>
               </>
           )}

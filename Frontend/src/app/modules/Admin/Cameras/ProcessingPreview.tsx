@@ -19,54 +19,80 @@ const ProcessingPreview: React.FC<ProcessingPreviewProps> = ({ filename, onClose
   const [currentFrame, setCurrentFrame] = useState<string | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [detections, setDetections] = useState<any[]>([]);
+  const [parking, setParking] = useState<any>(null);
   const [fetchingResult, setFetchingResult] = useState(false);
 
   useEffect(() => {
-    // If it's already done (like for images), just fetch the result from DB
-    if (status === 'done') {
-      const fetchResult = async () => {
-        setFetchingResult(true);
-        try {
-          const { data } = await supabase
-            .from('camera_detections')
-            .select('*')
-            .eq('source_type', 'Upload')
-            .filter('metadata->>filename', 'eq', filename)
-            .order('timestamp', { ascending: false })
-            .limit(1)
-            .single();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let isActive = true;
 
-          if (data) {
-            setDetections(data.results);
-            // We can't easily fetch the original image blob from DB results yet,
-            // so we still rely on the broadcast for the image data if we want to DRAW on it.
-            // But if it's done, we can at least show the count.
-            setProgress({ current: 1, total: 1 });
+    const fetchResult = async () => {
+      setFetchingResult(true);
+      try {
+        const { data } = await supabase
+          .from('camera_detections')
+          .select('*')
+          .eq('source_type', 'Upload')
+          .filter('metadata->>filename', 'eq', filename)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (isActive && data) {
+          let metadata = data.metadata;
+          let results = data.results;
+          if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch(e) {} }
+          if (typeof results === 'string') { try { results = JSON.parse(results); } catch(e) {} }
+
+          setDetections(results || []);
+          if (metadata?.parking) {
+            setParking(metadata.parking);
           }
-        } catch (err) {
-          console.error('Error fetching static result:', err);
-        } finally {
-          setFetchingResult(false);
+          if (metadata?.original_image_base64) {
+            // Reconstruct the image so the canvas can draw the bounding boxes over it
+            const mime = metadata?.mimeType || 'image/jpeg';
+            const b64 = metadata.original_image_base64;
+            
+            console.log("BASE64 DEBUG - Prefix:", b64.substring(0, 50));
+            console.log("BASE64 DEBUG - Mime:", mime);
+            
+            const finalImageStr = b64.startsWith('data:') ? b64 : `data:${mime};base64,${b64}`;
+            setCurrentFrame(finalImageStr);
+          } else {
+            console.warn("BASE64 DEBUG - original_image_base64 is missing from DB metadata for id:", data.id);
+          }
+          setProgress({ current: 1, total: 1 });
         }
-      };
+      } catch (err) {
+        console.error('Error fetching static result:', err);
+      } finally {
+        if (isActive) setFetchingResult(false);
+      }
+    };
+
+    if (status === 'done') {
       fetchResult();
-      return;
+    } else {
+      // Listen for live updates
+      const sanitizedName = sanitizeChannelName(filename);
+      const channelName = `streaming-${sanitizedName}`;
+      channel = supabase
+        .channel(channelName)
+        .on('broadcast', { event: 'frame' }, ({ payload }) => {
+          if (!isActive) return;
+          setCurrentFrame(payload.frame);
+          setDetections(payload.detections || []);
+          if (payload.parking) setParking(payload.parking);
+          setProgress({ current: payload.current, total: payload.total });
+        })
+        .subscribe();
     }
 
-    // Otherwise, listen for live updates
-    const sanitizedName = sanitizeChannelName(filename);
-    const channelName = `streaming-${sanitizedName}`;
-    const channel = supabase
-      .channel(channelName)
-      .on('broadcast', { event: 'frame' }, ({ payload }) => {
-        setCurrentFrame(payload.frame);
-        setDetections(payload.detections);
-        setProgress({ current: payload.current, total: payload.total });
-      })
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      isActive = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [filename, status]);
 
@@ -80,21 +106,50 @@ const ProcessingPreview: React.FC<ProcessingPreviewProps> = ({ filename, onClose
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
         
+        const baseScale = Math.max(img.width, img.height) / 1000;
+        const scaledLineWidth = Math.max(1, Math.round(3 * baseScale));
+        const scaledFontSize = Math.max(10, Math.round(20 * baseScale));
+
         detections.forEach((det: any) => {
-          if (!det.bbox) return;
-          const [x1, y1, x2, y2] = det.bbox;
+          if (!det.boundingBox) return;
+          const { x: x1, y: y1, width, height } = det.boundingBox;
           ctx.strokeStyle = '#00ff00';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+          ctx.lineWidth = scaledLineWidth;
+          ctx.strokeRect(x1, y1, width, height);
           
           ctx.fillStyle = '#00ff00';
-          ctx.font = 'bold 20px Inter, sans-serif';
-          ctx.fillText(`${det.class} (${Math.round(det.confidence * 100)}%)`, x1, y1 > 25 ? y1 - 10 : y1 + 25);
+          ctx.font = `bold ${scaledFontSize}px Inter, sans-serif`;
+          ctx.fillText(`${det.type || det.class} (${Math.round(det.confidence * 100)}%)`, x1, y1 > scaledFontSize + 5 ? y1 - (scaledFontSize / 2) : y1 + scaledFontSize + 5);
         });
+
+        if (parking && parking.slots) {
+          parking.slots.forEach((slot: any) => {
+            const isOccupied = slot.status === 'occupied';
+            ctx.strokeStyle = isOccupied ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.8)';
+            ctx.lineWidth = Math.max(1, Math.round(2 * baseScale));
+            
+            ctx.beginPath();
+            const startPoint = slot.coordinates[0];
+            ctx.moveTo(startPoint.x, startPoint.y);
+            for (let i = 1; i < slot.coordinates.length; i++) {
+              ctx.lineTo(slot.coordinates[i].x, slot.coordinates[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            
+            ctx.fillStyle = isOccupied ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 255, 0, 0.2)';
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = isOccupied ? '#ff4444' : '#44ff44';
+            ctx.font = `bold ${Math.max(10, Math.round(16 * baseScale))}px Inter, sans-serif`;
+            ctx.fillText(`P${slot.slotId}`, startPoint.x + 5, startPoint.y + Math.max(10, Math.round(16 * baseScale)));
+          });
+        }
       };
       img.src = currentFrame;
     }
-  }, [currentFrame, detections]);
+  }, [currentFrame, detections, parking]);
 
   return (
     <div style={{
@@ -173,6 +228,7 @@ const ProcessingPreview: React.FC<ProcessingPreviewProps> = ({ filename, onClose
               {status === 'done' ? 'PROCESSING COMPLETE' : 'BROADCASTING LIVE'}
             </div>
             <div style={{ fontSize: '0.875rem', fontWeight: 600, color: theme.palette.text.secondary }}>
+              {parking && <span style={{ marginRight: '1rem', color: theme.palette.primary.main }}>{parking.available}/{parking.totalSlots} Slots Free</span>}
               {status === 'done' ? `100% Processed` : `Frame ${progress.current} of ${progress.total}`}
             </div>
           </div>
@@ -186,9 +242,20 @@ const ProcessingPreview: React.FC<ProcessingPreviewProps> = ({ filename, onClose
           </div>
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {detections.length === 0 ? (
-              <span style={{ fontSize: '0.75rem', color: theme.palette.text.disabled }}>
-                {status === 'done' ? 'No items detected.' : 'Identifying objects...'}
-              </span>
+              parking && parking.slots ? (
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ padding: '0.2rem 0.6rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    {parking.occupied} Occupied
+                  </span>
+                  <span style={{ padding: '0.2rem 0.6rem', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    {parking.available} Available
+                  </span>
+                </div>
+              ) : (
+                <span style={{ fontSize: '0.75rem', color: theme.palette.text.disabled }}>
+                  {status === 'done' ? 'No items detected.' : 'Identifying objects...'}
+                </span>
+              )
             ) : (
               detections.map((det, i) => (
                 <span key={i} style={{ 
@@ -199,7 +266,7 @@ const ProcessingPreview: React.FC<ProcessingPreviewProps> = ({ filename, onClose
                   fontSize: '0.75rem', 
                   fontWeight: 700 
                 }}>
-                  {det.class || det}
+                  {det.type || det.class || det}
                 </span>
               ))
             )}

@@ -5,9 +5,13 @@ import time
 import argparse
 import json
 import os
+from dotenv import load_dotenv
 import supervision as sv
 import numpy as np
 from ultralytics import YOLO
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Local Modules
 from input_processing.stream_handler import StreamHandler
@@ -15,6 +19,9 @@ from detection.vehicle_detector import VehicleDetector
 from zones.manager import ZoneManager 
 from training.data_collector import DataCollector
 from training.data_logger import DataLogger
+
+# Import Gemini Hybrid Detector
+from detection.gemini_detector import GeminiDetector
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,12 +45,22 @@ def main():
     # 1. Initialize Input (includes Preprocessing/Enhancement)
     stream = StreamHandler(config)
     
-    # 2. Initialize Model (Detection & Tracking)
-    model = YOLO(config['model']['path'])
+    # 2. Initialize Gemini Model (Detection & Tracking disabled)
+    gemini_model = None
+    gemini_enabled = config.get('gemini', {}).get('enabled', False)
+    gemini_interval = config.get('gemini', {}).get('interval_seconds', 5)
+    last_gemini_query = 0
+    # Store persistent hybrid labels per tracking ID
+    hybrid_labels = {} 
     
-    # 2b. Initialize Training Tools
-    collector = DataCollector(config)
-    logger = DataLogger(config)
+    if gemini_enabled:
+        try:
+             gemini_model = GeminiDetector(config)
+             logging.info("Gemini-Only module initialized.")
+        except ImportError:
+             logging.error("Failed to initialize GeminiDetector. google-genai may be missing.")
+             return
+    
     
     # 3. Initialize Zone Manager (Polygon Zones)
     # We reconstruct this here to leverage supervision's optimized tools directly
@@ -136,26 +153,46 @@ def main():
         if not success:
             break
             
-        # 5. Inference & Tracking
-        # persist=True enables the ByteTrack/BoT-SORT tracker
-        results = model.track(frame, 
-                              persist=True, 
-                              conf=config['model']['conf_threshold'],
-                              iou=config['model']['iou_threshold'],
-                              imgsz=config['model'].get('imgsz', 640),
-                              classes=config['model']['classes'],
-                              verbose=False)[0]
-
-        # Convert to supervision Detections
-        detections = sv.Detections.from_ultralytics(results)
+        # 5. Inference (Gemini-Only)
+        if gemini_model:
+             gemini_results = gemini_model.detect(frame)
+             
+             # Convert Gemini results to Supervision Detections
+             if gemini_results:
+                 xyxy = []
+                 conf = []
+                 class_ids = []
+                 
+                 # Map new vehicle types to COCO class IDs for coloring
+                 vehicle_coco_map = {
+                     'car': 2, 'motorcycle': 3, 'bicycle': 1,
+                     'bus': 5, 'truck': 7, 'occupied_slot': 2
+                 }
+                 
+                 for det in gemini_results:
+                     box = det['boundingBox']
+                     xyxy.append([box['x'], box['y'], box['x'] + box['width'], box['y'] + box['height']])
+                     conf.append(det['confidence'])
+                     
+                     dtype = det.get('type', 'unknown')
+                     if dtype in vehicle_coco_map:
+                         class_ids.append(vehicle_coco_map[dtype])
+                     elif dtype.endswith('_space'):
+                         class_ids.append(0)  # Use index 0 for spaces (will get green color)
+                     else:
+                         class_ids.append(0)
+                 
+                 detections = sv.Detections(
+                     xyxy=np.array(xyxy),
+                     confidence=np.array(conf),
+                     class_id=np.array(class_ids)
+                 )
+             else:
+                 detections = sv.Detections.empty()
+        else:
+             detections = sv.Detections.empty()
         
-        # Ensure we have tracker IDs
-        if results.boxes.id is not None:
-             detections.tracker_id = results.boxes.id.cpu().numpy().astype(int)
-        
-        # 5b. Continuous Training - Data Collection
-        collector.collect(frame, detections)
-        logger.log_detections(detections, model.model.names)
+        # Note: Tracker IDs are disabled in Gemini-only mode as it does not persist across frames natively.
         
         # 6. Process Logic
         
@@ -164,14 +201,9 @@ def main():
             gate['zone'].trigger(detections=detections)
             # Annotate line
             gate['annotator'].annotate(frame=frame, line_counter=gate['zone'])
-            
-            # The LineZone in supervision maintains in_count and out_count
-            # We assign these based on the gate type defined in config.yaml
-            # If gate is an 'entry' gate, we look at crossings that incremented the in/out counters.
-            # In simple terms, LineZone counts how many objects crossed in either direction.
             pass 
             
-        
+
         # ZONES (Occupancy)
         zone_status = []
         for zone_item in sv_zones:
@@ -198,16 +230,17 @@ def main():
 
         # 7. Visualization
         labels = []
-        if detections.tracker_id is not None:
+        if gemini_results:
             labels = [
-                f"#{tracker_id} {model.model.names[class_id]} {confidence:0.2f}"
-                for confidence, class_id, tracker_id
-                in zip(detections.confidence, detections.class_id, detections.tracker_id)
+                f"{det['type']} {det['confidence']:0.2f}"
+                for det in gemini_results
             ]
         
         # Separate annotate calls
-        frame = box_annotator.annotate(scene=frame, detections=detections)
-        frame = label_annotator.annotate(scene=frame, detections=detections, labels=labels)
+        if len(detections) > 0:
+            frame = box_annotator.annotate(scene=frame, detections=detections)
+            if labels:
+                 frame = label_annotator.annotate(scene=frame, detections=detections, labels=labels)
         
         last_valid_frame = frame.copy()
         

@@ -1,3 +1,5 @@
+@import './styles/auth.css';
+
 :root {
   --primary: #1a365d; /* Navy Blue - Corporate/Campus feel */
   --primary-light: #2a4365;
@@ -71,22 +73,7 @@ input:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
 }
 
-.auth-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.auth-card {
-  background: var(--bg-card);
-  padding: 2.5rem;
-  border-radius: 1rem;
-  box-shadow: var(--shadow-md);
-  width: 100%;
-  max-width: 450px;
-}
+/* Auth page styles loaded via @import at top of file */
 
 .btn-primary {
   background-color: var(--primary);

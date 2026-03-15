@@ -61,11 +61,10 @@ const SettingsPage: React.FC = () => {
         }}>
           <div>
             <h1 style={{ 
-              fontSize: '2.25rem', 
-              fontWeight: 800, 
+              fontSize: '1.875rem', 
+              fontWeight: 700, 
               color: theme.palette.text.primary, 
               marginBottom: '0.5rem',
-              letterSpacing: '-0.025em'
             }}>Settings</h1>
             <p style={{ color: theme.palette.text.secondary }}>Customize your experience and manage security preferences.</p>
           </div>

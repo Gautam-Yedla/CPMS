@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AuthLayout from '@app/Layout/legacy/AuthLayout';
 import { supabase } from '@utils/lib/supabase';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, User, Mail, IdCard, Building, Car, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { mapErrorMessage } from '@utils/errorHelpers';
-
 import Notification from '@shared/components/legacy/Notification';
 
 const StudentRegisterPage: React.FC = () => {
@@ -12,6 +11,8 @@ const StudentRegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -61,7 +62,6 @@ const StudentRegisterPage: React.FC = () => {
       if (signUpError) throw signUpError;
 
       if (data.user) {
-        // Update profile with extra fields
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
@@ -90,6 +90,8 @@ const StudentRegisterPage: React.FC = () => {
     <AuthLayout 
       title="Student Registration" 
       subtitle="Only students can self-register. Faculty and staff accounts are created by admin."
+      brandSubtitle="Join your campus parking community"
+      wide
     >
       {successMsg && (
         <Notification 
@@ -108,61 +110,136 @@ const StudentRegisterPage: React.FC = () => {
       )}
       
       <form onSubmit={handleRegister}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Full Name</label>
-            <input name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="John Doe" />
+        {/* ---- Personal Information ---- */}
+        <div className="auth-section-divider">
+          <span className="auth-section-label">Personal Information</span>
+        </div>
+
+        <div className="auth-grid-2">
+          <div className="auth-input-group">
+            <label className="auth-input-label">Full Name</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><User size={18} /></span>
+              <input name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="John Doe" />
+            </div>
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>College Email</label>
-            <input name="email" type="email" value={formData.email} onChange={handleChange} required placeholder="john@college.edu" />
+          <div className="auth-input-group">
+            <label className="auth-input-label">College Email</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><Mail size={18} /></span>
+              <input name="email" type="email" value={formData.email} onChange={handleChange} required placeholder="john@college.edu" />
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Student ID</label>
-            <input name="studentId" value={formData.studentId} onChange={handleChange} required placeholder="ID-12345" />
+        <div className="auth-grid-2">
+          <div className="auth-input-group">
+            <label className="auth-input-label">Student ID</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><IdCard size={18} /></span>
+              <input name="studentId" value={formData.studentId} onChange={handleChange} required placeholder="ID-12345" />
+            </div>
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Department</label>
-            <input name="department" value={formData.department} onChange={handleChange} required placeholder="Computer Science" />
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Vehicle Number</label>
-            <input name="vehicleNumber" value={formData.vehicleNumber} onChange={handleChange} required placeholder="ABC-1234" />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Vehicle Type</label>
-            <select name="vehicleType" value={formData.vehicleType} onChange={handleChange}>
-              <option value="Two-wheeler">Two-wheeler</option>
-              <option value="Four-wheeler">Four-wheeler</option>
-            </select>
+          <div className="auth-input-group">
+            <label className="auth-input-label">Department</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><Building size={18} /></span>
+              <input name="department" value={formData.department} onChange={handleChange} required placeholder="Computer Science" />
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Password</label>
-            <input name="password" type="password" value={formData.password} onChange={handleChange} required placeholder="••••••••" />
+        {/* ---- Vehicle Information ---- */}
+        <div className="auth-section-divider">
+          <span className="auth-section-label">Vehicle Information</span>
+        </div>
+
+        <div className="auth-grid-2">
+          <div className="auth-input-group">
+            <label className="auth-input-label">Vehicle Number</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><Car size={18} /></span>
+              <input name="vehicleNumber" value={formData.vehicleNumber} onChange={handleChange} required placeholder="ABC-1234" />
+            </div>
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.875rem' }}>Confirm Password</label>
-            <input name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required placeholder="••••••••" />
+          <div className="auth-input-group">
+            <label className="auth-input-label">Vehicle Type</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><Car size={18} /></span>
+              <select name="vehicleType" value={formData.vehicleType} onChange={handleChange}>
+                <option value="Two-wheeler">Two-wheeler</option>
+                <option value="Four-wheeler">Four-wheeler</option>
+              </select>
+            </div>
           </div>
         </div>
 
+        {/* ---- Security ---- */}
+        <div className="auth-section-divider">
+          <span className="auth-section-label">Security</span>
+        </div>
 
+        <div className="auth-grid-2">
+          <div className="auth-input-group">
+            <label className="auth-input-label">Password</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><KeyRound size={18} /></span>
+              <input
+                name="password" 
+                type={showPassword ? 'text' : 'password'} 
+                value={formData.password} 
+                onChange={handleChange} 
+                required 
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                className="auth-password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+          <div className="auth-input-group">
+            <label className="auth-input-label">Confirm Password</label>
+            <div className="auth-input-wrapper">
+              <span className="auth-input-icon"><KeyRound size={18} /></span>
+              <input
+                name="confirmPassword" 
+                type={showConfirmPassword ? 'text' : 'password'} 
+                value={formData.confirmPassword} 
+                onChange={handleChange} 
+                required 
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                className="auth-password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
         <button 
           type="submit" 
-          className={`btn-primary ${loading ? 'loading' : ''}`}
+          className="auth-submit-btn"
           disabled={loading}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
         >
-          {loading ? 'Creating Account...' : (
+          {loading ? (
+            <>
+              <span className="auth-spinner" />
+              Creating Account...
+            </>
+          ) : (
             <>
               <UserPlus size={20} />
               Register as Student
@@ -170,8 +247,9 @@ const StudentRegisterPage: React.FC = () => {
           )}
         </button>
 
-        <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-          Already have an account? <Link to="/login" style={{ fontWeight: 600 }}>Sign in</Link>
+        <p className="auth-footer-text">
+          Already have an account?{' '}
+          <Link to="/login" className="auth-footer-link">Sign in</Link>
         </p>
       </form>
     </AuthLayout>

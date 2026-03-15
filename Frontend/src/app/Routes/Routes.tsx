@@ -23,9 +23,13 @@ import CameraManagement from '@modules/Admin/Cameras/CameraManagement';
 import MediaUploads from '@modules/Admin/Cameras/MediaUploads';
 import SystemStatus from '@modules/Admin/Cameras/SystemStatus';
 import RolesPage from '@modules/Admin/Authorization/Roles/RolesPage';
+import PermissionsPage from '@modules/Admin/Authorization/Permissions/PermissionsPage';
 import UsersPage from '@modules/Admin/Authorization/Users/UsersPage';
 import UserManagementPage from '@modules/Admin/UserManagement/UserManagementPage';
 import SupportTicketsPage from '@modules/Admin/Support/SupportTicketsPage';
+import ViolationsPage from '@modules/Admin/Violations/ViolationsPage';
+import ReportsPage from '@modules/Admin/Reports/ReportsPage';
+import ParkingManagementPage from '@modules/Admin/Parking/ParkingManagementPage';
 
 const PrivateRoute = () => {
   const { isLoggedIn } = useSelector((state: IRootState) => state.app.auth);
@@ -82,12 +86,14 @@ export const RouteNavigation = () => {
                 
                 {/* Authorization Routes */}
                 <Route path="/admin/auth/roles" element={<RolesPage />} />
+                <Route path="/admin/auth/permissions" element={<PermissionsPage />} />
                 <Route path="/admin/auth/users" element={<UsersPage />} />
 
                 <Route path="/admin/users" element={<UserManagementPage />} />
-                <Route path="/admin/parking" element={<div style={{ padding: '2rem' }}><h1>Parking Management</h1></div>} />
-                <Route path="/admin/violations" element={<div style={{ padding: '2rem' }}><h1>Violations</h1></div>} />
-                <Route path="/admin/reports" element={<div style={{ padding: '2rem' }}><h1>Reports</h1></div>} />
+                <Route path="/admin/notifications" element={<StudentNotificationsPage />} />
+                <Route path="/admin/parking" element={<ParkingManagementPage />} />
+                <Route path="/admin/violations" element={<ViolationsPage />} />
+                <Route path="/admin/reports" element={<ReportsPage />} />
                 
                 <Route path="/admin/support" element={<SupportTicketsPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />

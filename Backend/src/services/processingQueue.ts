@@ -25,6 +25,7 @@ interface Job {
   location: string;
   userId: string;
   token: string;
+  detectionType?: string;
 }
 
 class ProcessingQueue extends EventEmitter {
@@ -72,6 +73,10 @@ class ProcessingQueue extends EventEmitter {
       let aggregatedDetections: any[] = [];
       let peakCounts: Record<string, number> = {};
       let framesProcessed = 1; // Default for images
+      let finalParkingState: any = null;
+      let singleImageBase64: string | null = null;
+
+      let localResults: any = null;
 
       if (isVideo) {
         // Handle Video: Extract frames and stream
@@ -100,16 +105,18 @@ class ProcessingQueue extends EventEmitter {
           const base64 = frameBuffer.toString('base64');
           
           try {
-            const mlResults = await MLBridgeService.processFrame(base64);
+            const mlResults = await MLBridgeService.processFrame(base64, undefined, true, job.detectionType);
             
-            // AGGREGATION FIX: Instead of raw list, track peak counts or unique occurrences
-            // For the "Detected 2021 objects" fix, we'll store a Summary of counts per class
+            // Capture local results from last frame
+            if (mlResults.local_results) {
+              localResults = mlResults.local_results;
+            }
+
             const frameCounts: Record<string, number> = {};
-            mlResults.detections.forEach(det => {
-              frameCounts[det.class] = (frameCounts[det.class] || 0) + 1;
+            (mlResults.vehicles || []).forEach(det => {
+              frameCounts[det.type] = (frameCounts[det.type] || 0) + 1;
             });
 
-            // Keep track of maximum number of each item seen at once
             Object.entries(frameCounts).forEach(([cls, count]) => {
               const currentPeak = peakCounts[cls];
               if (currentPeak === undefined || count > currentPeak) {
@@ -117,14 +124,18 @@ class ProcessingQueue extends EventEmitter {
               }
             });
 
-            // Broadcast frame + detections
+            if (mlResults.parking) {
+              finalParkingState = mlResults.parking;
+            }
+
             await channel.send({
               type: 'broadcast',
               event: 'frame',
               payload: {
                 filename: job.filename,
                 frame: `data:image/jpeg;base64,${base64}`,
-                detections: mlResults.detections,
+                detections: mlResults.vehicles || [],
+                parking: mlResults.parking,
                 current: index + 1,
                 total: framesProcessed
               }
@@ -133,15 +144,12 @@ class ProcessingQueue extends EventEmitter {
             console.error(`[Queue] ML Error on frame:`, err);
           }
 
-          // Delay for UX
           await new Promise(r => setTimeout(r, 100));
         }
 
-        // Final Aggregate Detections: Create a list based on peak counts
-        // This is a heuristic to represent the "Uniques" better than simple concatenation
         Object.entries(peakCounts).forEach(([cls, count]) => {
           for (let i = 0; i < count; i++) {
-            aggregatedDetections.push({ class: cls, confidence: 1.0 });
+            aggregatedDetections.push({ type: cls, confidence: 1.0 });
           }
         });
 
@@ -150,8 +158,12 @@ class ProcessingQueue extends EventEmitter {
       } else {
         // Handle Image
         const base64 = job.buffer.toString('base64');
-        const mlResults = await MLBridgeService.processFrame(base64);
-        aggregatedDetections = mlResults.detections;
+        const mlResults = await MLBridgeService.processFrame(base64, undefined, true, job.detectionType);
+        aggregatedDetections = mlResults.vehicles || [];
+        finalParkingState = mlResults.parking || null;
+        localResults = mlResults.local_results || null;
+        
+        singleImageBase64 = base64;
 
         await channel.send({
           type: 'broadcast',
@@ -159,11 +171,24 @@ class ProcessingQueue extends EventEmitter {
           payload: {
             filename: job.filename,
             frame: `data:${job.mimeType};base64,${base64}`,
-            detections: mlResults.detections,
+            detections: mlResults.vehicles || [],
+            parking: mlResults.parking,
             current: 1,
             total: 1
           }
         });
+      }
+
+      // Log local model results to terminal
+      if (localResults) {
+        const pkBest = localResults.pk_best;
+        const best = localResults.best;
+        const comparison = localResults.comparison;
+        console.log(`[Queue] ── LOCAL MODEL RESULTS for ${job.filename} ──`);
+        console.log(`[Queue] [PK-BEST] ${pkBest?.count || 0} detections (${pkBest?.latency_ms || 0}ms)`);
+        console.log(`[Queue] [BEST]    ${best?.count || 0} detections (${best?.latency_ms || 0}ms)`);
+        console.log(`[Queue] [COMPARE] Agreement: ${comparison?.agreement || 0}%`);
+        console.log(`[Queue] ──────────────────────────────────────────────`);
       }
 
       // Finalize: Insert into database
@@ -181,7 +206,10 @@ class ProcessingQueue extends EventEmitter {
             is_video: isVideo,
             frames_processed: framesProcessed,
             peak_counts: peakCounts,
-            is_summary: isVideo
+            is_summary: isVideo,
+            parking: finalParkingState,
+            original_image_base64: singleImageBase64,
+            local_results: localResults
           }
         })
         .select()

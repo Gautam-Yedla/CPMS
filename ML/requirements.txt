@@ -20,3 +20,5 @@ filterpy # Kalman filter implementation (if custom tracking needed)
 scikit-learn
 notebook
 ipykernel
+python-dotenv
+google-genai

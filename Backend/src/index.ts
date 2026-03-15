@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 
 import userRoutes from './routes/userRoutes.js';
-// import notificationRoutes from './routes/notificationRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 // import dashboardRoutes from './routes/dashboardRoutes.js';
 import permitRoutes from './routes/permitRoutes.js';
 // import vehicleRoutes from './routes/vehicleRoutes.js';
@@ -16,6 +16,7 @@ import cameraRoutes from './routes/cameraRoutes.js';
 import streamRoutes from './routes/streamRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import supportRoutes from './routes/supportRoutes.js';
+import violationsRoutes from './routes/violationsRoutes.js';
 
 dotenv.config();
 
@@ -29,7 +30,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/user', userRoutes);
-// app.use('/api/notifications', notificationRoutes);
+app.use('/api/notifications', notificationRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/permits', permitRoutes);
 // app.use('/api/reports', reportRoutes);
@@ -40,6 +41,7 @@ app.use('/api/cameras', cameraRoutes);
 app.use('/api/stream', streamRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/violations', violationsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

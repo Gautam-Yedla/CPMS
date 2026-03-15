@@ -1,28 +1,27 @@
-# Python
+# Standard Python ignores
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual Environment
-venv/
+*.py[cod]
+*$py.class
+.Python
 env/
+venv/
+.venv
+build/
+dist/
+*.egg-info/
+.env
 
-# Data
-data/raw/*
-data/processed/*
-data/interim/*
-data/external/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/interim/.gitkeep
-!data/external/.gitkeep
+# ML Specific - Broad Ignores
+data/
+models/
+runs/
+*.pt
+*.onnx
+*.zip
+*.log
+*.jpg
+*.png
+status.json
 
-# Models
-models/checkpoints/*
-models/deployed/*
-!models/checkpoints/.gitkeep
-!models/deployed/.gitkeep
-
-# Notebooks
-.ipynb_checkpoints/
+# Ignore everything in data folder
+data/**/*

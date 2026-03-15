@@ -21,6 +21,7 @@ router.delete('/roles/:roleId/permissions/:permissionId', authMiddleware, authCo
 
 // User Roles
 router.get('/users', authMiddleware, authController.getAllUsers); // Helper to get all users for assignment
+router.put('/users/:userId', authMiddleware, authController.updateUser);
 router.get('/users/:userId/roles', authMiddleware, authController.getUserRoles);
 router.post('/users/:userId/roles', authMiddleware, authController.assignRoleToUser);
 router.delete('/users/:userId/roles/:roleId', authMiddleware, authController.removeRoleFromUser);

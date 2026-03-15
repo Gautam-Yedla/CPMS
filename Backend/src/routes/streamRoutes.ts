@@ -23,7 +23,7 @@ router.post('/upload', authMiddleware, upload.array('media', 10), async (req: an
     return res.status(400).json({ error: 'No files uploaded' });
   }
 
-  const { location = 'Manual Batch' } = req.body;
+  const { location = 'Manual Batch', detectionType = 'all' } = req.body;
   const batchId = uuidv4();
   const token = req.headers.authorization?.split(' ')[1];
 
@@ -40,7 +40,8 @@ router.post('/upload', authMiddleware, upload.array('media', 10), async (req: an
       mimeType: file.mimetype,
       location,
       userId: req.user.id,
-      token
+      token,
+      detectionType
     });
   });
 
@@ -71,10 +72,10 @@ router.post('/process', authMiddleware, async (req: any, res) => {
       .insert({
         camera_id: cameraId,
         source_type: 'Live',
-        results: mlResults.detections,
+        results: mlResults.vehicles,
         metadata: {
-          count: mlResults.count,
-          timestamp: mlResults.timestamp
+          count: mlResults.vehicles ? mlResults.vehicles.length : 0,
+          timestamp: timestamp || new Date().toISOString()
         }
       });
 

@@ -19,6 +19,7 @@ interface MLZone {
 
 interface MLStatus {
   timestamp: number;
+  active_violations?: number;
   zones: MLZone[];
   gates: {
     total_entered: number;
@@ -73,7 +74,7 @@ const AdminDashboardHome: React.FC = () => {
     },
     { 
       label: 'Active Violations', 
-      value: '3', 
+      value: mlStatus?.active_violations?.toString() || '0', 
       icon: <AlertCircle size={24} />, 
       color: '#ef4444', 
       trend: 'Requiring Attention' 

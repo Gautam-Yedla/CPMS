@@ -1,0 +1,42 @@
+# Node.js
+node_modules/
+dist/
+build/
+.npm/
+npm-debug.log*
+
+# Python & ML
+__pycache__/
+venv/
+.venv
+env/
+*.pt
+*.onnx
+*.zip
+*.log
+runs/
+data/
+status.json
+annotated_result.jpg
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Filesystem & IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Documentation build results
+Docs/_build/
+
+# Specific project ignores
+/ML/data/
+/ML/models/
+/ML/venv/
+/Frontend/dist/
+/Backend/dist/
+/Backend/build/

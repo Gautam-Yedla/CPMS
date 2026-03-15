@@ -27,7 +27,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const dispatch = useDispatch();
   const theme = useTheme();
   const { user, theme: themeMode } = useSelector((state: IRootState) => state.app.auth);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState<HTMLElement | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -149,11 +149,11 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
 
         <div style={{ position: 'relative' }}>
           <button 
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={(e) => setNotificationAnchorEl(e.currentTarget)}
             style={{ 
               background: 'none', 
               border: 'none', 
-              color: showNotifications ? theme.palette.primary.main : theme.palette.text.secondary, 
+              color: Boolean(notificationAnchorEl) ? theme.palette.primary.main : theme.palette.text.secondary, 
               cursor: 'pointer',
               padding: '8px',
               borderRadius: '8px',
@@ -176,12 +176,13 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             )}
           </button>
           <NotificationPopover 
-            isOpen={showNotifications} 
-            onClose={() => setShowNotifications(false)}
+            anchorEl={notificationAnchorEl} 
+            onClose={() => setNotificationAnchorEl(null)}
             notifications={notifications}
             loading={loadingNotifications}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}
+            basePath={user?.role === 'admin' ? '/admin' : '/student'}
           />
         </div>
         

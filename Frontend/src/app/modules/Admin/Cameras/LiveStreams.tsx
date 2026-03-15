@@ -4,9 +4,14 @@ import { api } from '../../../utils/services/api';
 import { useTheme } from '@mui/material/styles';
 
 interface Detection {
-  bbox: number[];
+  type: string;
   confidence: number;
-  class: string;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 const LiveStreams: React.FC = () => {
@@ -15,6 +20,7 @@ const LiveStreams: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [detections, setDetections] = useState<Detection[]>([]);
+  const [parking, setParking] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [mlStatus, setMlStatus] = useState<'Online' | 'Offline'>('Offline');
 
@@ -68,7 +74,8 @@ const LiveStreams: React.FC = () => {
 
           try {
             const results = await api.processStreamFrame('WEB-CAM-01', base64);
-            setDetections(results.detections);
+            setDetections(results.vehicles || []);
+            setParking(results.parking || null);
           } catch (err) {
             console.error('Frame processing failed:', err);
           }
@@ -93,18 +100,44 @@ const LiveStreams: React.FC = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         detections.forEach((det) => {
-          const [x1, y1, x2, y2] = det.bbox;
+          if (!det.boundingBox) return;
+          const { x: x1, y: y1, width, height } = det.boundingBox;
           ctx.strokeStyle = '#00ff00';
           ctx.lineWidth = 3;
-          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+          ctx.strokeRect(x1, y1, width, height);
           
           ctx.fillStyle = '#00ff00';
           ctx.font = 'bold 16px Inter, sans-serif';
-          ctx.fillText(`${det.class} (${Math.round(det.confidence * 100)}%)`, x1, y1 > 20 ? y1 - 5 : y1 + 20);
+          ctx.fillText(`${det.type} (${Math.round(det.confidence * 100)}%)`, x1, y1 > 20 ? y1 - 5 : y1 + 20);
         });
+
+        if (parking && parking.slots) {
+          parking.slots.forEach((slot: any) => {
+            const isOccupied = slot.status === 'occupied';
+            ctx.strokeStyle = isOccupied ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.8)';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            const startPoint = slot.coordinates[0];
+            ctx.moveTo(startPoint.x, startPoint.y);
+            for (let i = 1; i < slot.coordinates.length; i++) {
+              ctx.lineTo(slot.coordinates[i].x, slot.coordinates[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            
+            ctx.fillStyle = isOccupied ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 255, 0, 0.2)';
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = isOccupied ? '#ff4444' : '#44ff44';
+            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.fillText(`P${slot.slotId}`, startPoint.x + 5, startPoint.y + 15);
+          });
+        }
       }
     }
-  }, [detections]);
+  }, [detections, parking]);
 
   return (
     <div style={{ padding: '2rem', color: theme.palette.text.primary }}>
@@ -235,6 +268,29 @@ const LiveStreams: React.FC = () => {
             }}></div>
             {isStreaming ? 'LIVE' : 'OFFLINE'} | WebCam-01 (Faculty Gate)
           </div>
+
+          {parking && (
+            <div style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              padding: '0.5rem 1rem',
+              borderRadius: '8px',
+              color: 'white',
+              backdropFilter: 'blur(4px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.25rem'
+            }}>
+              <div style={{ fontSize: '0.75rem', color: theme.palette.text.secondary, fontWeight: 600 }}>PARKING STATUS</div>
+              <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', fontWeight: 700 }}>
+                <span style={{ color: theme.palette.success.light }}>{parking.available} Free</span>
+                <span style={{ color: theme.palette.error.light }}>{parking.occupied} Full</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

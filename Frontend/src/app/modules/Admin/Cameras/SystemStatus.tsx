@@ -133,8 +133,19 @@ const SystemStatus: React.FC = () => {
               <span style={{ color: log.source_type === 'Live' ? theme.palette.success.main : theme.palette.info.main }}>{log.source_type.toUpperCase()}</span>
               <span style={{ color: theme.palette.mode === 'dark' ? theme.palette.text.primary : '#e2e8f0' }}>
                 {log.source_type === 'Upload' && log.metadata?.filename && `[${log.metadata.filename}] `}
-                Detected {log.results.length} objects 
-                {log.results.length > 0 && ` (${log.results.map((r: any) => r.class).join(', ')})`}
+                {(() => {
+                  const results = Array.isArray(log.results) ? log.results : (typeof log.results === 'string' ? (() => { try { return JSON.parse(log.results); } catch { return []; } })() : []);
+                  const metadata = typeof log.metadata === 'string' ? (() => { try { return JSON.parse(log.metadata); } catch { return {}; } })() : (log.metadata || {});
+                  const parking = metadata?.parking;
+                  const resultsCount = results.length;
+                  const parkingOccupied = parking?.occupied || 0;
+                  const displayCount = resultsCount > 0 ? resultsCount : parkingOccupied;
+                  
+                  if (parking && resultsCount === 0) {
+                    return `Detected ${displayCount} vehicles • ${parking.available}/${parking.totalSlots} slots free`;
+                  }
+                  return `Detected ${resultsCount} objects${resultsCount > 0 ? ` (${results.map((r: any) => r.type || r.class).join(', ')})` : ''}`;
+                })()}
               </span>
             </div>
           ))

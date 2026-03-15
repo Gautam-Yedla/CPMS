@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { LogIn } from 'lucide-react';
+import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@utils/lib/supabase';
 import { mapErrorMessage } from '@utils/errorHelpers';
 import AuthLayout from '@app/Layout/legacy/AuthLayout';
@@ -17,6 +17,7 @@ import { IRootState } from '@app/appReducer';
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -79,54 +80,66 @@ const LoginPage: React.FC = () => {
           }} 
         />
       )}
+
       <form onSubmit={handleLogin}>
-        <div style={{ marginBottom: '1.25rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>College Email</label>
-          <input
-            type="email"
-            placeholder="email@college.edu"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #ddd' }}
-          />
+        {/* Email Field */}
+        <div className="auth-input-group">
+          <label className="auth-input-label">College Email</label>
+          <div className="auth-input-wrapper">
+            <span className="auth-input-icon">
+              <Mail size={18} />
+            </span>
+            <input
+              type="email"
+              placeholder="email@college.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
         </div>
         
-        <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <label style={{ fontWeight: 500 }}>Password</label>
-            <Link to="/forgot-password" style={{ fontSize: '0.875rem', color: '#6366f1' }}>Forgot password?</Link>
+        {/* Password Field */}
+        <div className="auth-input-group">
+          <div className="auth-label-row">
+            <label className="auth-input-label">Password</label>
+            <Link to="/forgot-password" className="auth-forgot-link">Forgot password?</Link>
           </div>
-          <input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #ddd' }}
-          />
+          <div className="auth-input-wrapper">
+            <span className="auth-input-icon">
+              <Lock size={18} />
+            </span>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
 
+        {/* Submit Button */}
         <button 
           type="submit" 
+          className="auth-submit-btn"
           disabled={loading}
-          style={{ 
-            width: '100%', 
-            padding: '0.75rem', 
-            borderRadius: '0.5rem', 
-            border: 'none', 
-            backgroundColor: '#6366f1', 
-            color: 'white', 
-            fontWeight: 600, 
-            cursor: loading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            opacity: loading ? 0.7 : 1
-          }}
         >
-          {loading ? 'Signing in...' : (
+          {loading ? (
+            <>
+              <span className="auth-spinner" />
+              Signing in...
+            </>
+          ) : (
             <>
               <LogIn size={20} />
               Sign In
@@ -134,8 +147,9 @@ const LoginPage: React.FC = () => {
           )}
         </button>
 
-        <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#666' }}>
-          New student? <Link to="/register" style={{ fontWeight: 600, color: '#6366f1' }}>Create an account</Link>
+        <p className="auth-footer-text">
+          New student?{' '}
+          <Link to="/register" className="auth-footer-link">Create an account</Link>
         </p>
       </form>
     </AuthLayout>

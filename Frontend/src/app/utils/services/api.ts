@@ -82,8 +82,52 @@ export const api = {
 
   fetchTickets: () => request('/support'),
 
-  // Users (Admin)
+  // Users & Roles (Admin)
   fetchUsers: () => request('/auth/users'),
+  updateUser: (id: string, data: any) => request(`/auth/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  fetchRoles: () => request('/auth/roles'),
+  createRole: (data: any) => request('/auth/roles', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateRole: (id: string, data: any) => request(`/auth/roles/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteRole: (id: string) => request(`/auth/roles/${id}`, {
+    method: 'DELETE',
+  }),
+  fetchUserRoles: (userId: string) => request(`/auth/users/${userId}/roles`),
+  assignUserRole: (userId: string, roleId: string) => request(`/auth/users/${userId}/roles`, {
+    method: 'POST',
+    body: JSON.stringify({ roleId }),
+  }),
+  removeUserRole: (userId: string, roleId: string) => request(`/auth/users/${userId}/roles/${roleId}`, {
+    method: 'DELETE',
+  }),
+
+  // Permissions
+  fetchPermissions: () => request('/auth/permissions'),
+  createPermission: (data: any) => request('/auth/permissions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  
+  // Role Permissions
+  fetchRolePermissions: (roleId: string) => request(`/auth/roles/${roleId}/permissions`),
+  assignRolePermission: (roleId: string, permissionId: string) => request(`/auth/roles/${roleId}/permissions`, {
+    method: 'POST',
+    body: JSON.stringify({ permissionId }),
+  }),
+  removeRolePermission: (roleId: string, permissionId: string) => request(`/auth/roles/${roleId}/permissions/${permissionId}`, {
+    method: 'DELETE',
+  }),
+
+  // Violations
+  fetchViolations: () => request('/violations'),
 
   // Activity
   fetchActivityLogs: () => request('/activity'),

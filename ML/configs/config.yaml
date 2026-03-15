@@ -15,7 +15,7 @@ input:
   sources:
     primary:
       type: "video" # rtsp, webcam, video, image
-      path: "data/raw/large-vecteezy_parking-lot-movement_1623435_large.mp4" # Path or URL
+      path: "data/raw/IMG-20260304-WA0067.jpg" # Path or URL
       # path: "data/raw/parking_lot.jpg" # Example for image type
       # path: "rtsp://admin:password@192.168.1.100:554/stream"
     fallback:
@@ -30,11 +30,11 @@ preprocessing:
 
 # Model Configuration
 model:
-  path: "models/checkpoints/yolov8m.pt" # Balanced for video (Medium)
-  device: "cuda" # or "cpu" if no GPU available
-  conf_threshold: 0.15 
-  iou_threshold: 0.60
-  imgsz: 960         # Optimized resolution for video speed
+  path: "models/checkpoints/vehicles/yolo11l.pt" # YOLO v11 Large for highest accuracy
+  device: "cpu" # or "cpu" if no GPU available
+  conf_threshold: 0.25 
+  iou_threshold: 0.45
+  imgsz: 1280        # Higher resolution for more accurate predictions
   classes: [1, 2, 3, 5, 7] # COCO: 1=bicycle, 2=car, 3=motorcycle, 5=bus, 7=truck
   color_map:
     bicycle: "#00FF00" # Green
@@ -43,10 +43,29 @@ model:
     bus: "#FFA500"     # Orange
     truck: "#FF0000"   # Red
 
+# Parking Slot Detection Model (Optional Dual-Model)
+parking_model:
+  path: "models/checkpoints/parking-slots/PK-best.pt" # Train this model to detect empty/occupied parking slots directly
+  device: "cpu"
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  imgsz: 640
+  classes: [0, 1] # Assumed: 0=empty, 1=occupied
+
 # Tracking Configuration (BoT-SORT / ByteTrack via Ultralytics)
 tracking:
   tracker_type: "bytetrack.yaml" # or botsort.yaml
   persist: true
+
+# Gemini Hybrid Configuration
+gemini:
+  model_name: "gemini-3.1-flash-lite-preview"
+  api_key: "" # Leave empty to use GEMINI_API_KEY environment variable
+  interval_seconds: 5 # How often main.py should query Gemini
+  enabled: true
+  max_image_dimension: 1536 # Resize large images before sending to API
+  enable_thinking: true # Enable chain-of-thought reasoning for better spatial analysis
+  min_vehicle_gap_px: 80 # Minimum pixel gap to consider as a feasible parking space
 
 # Entry/Exit Gates (Virtual Lines)
 gates:
@@ -86,3 +105,18 @@ training:
   collector_path: "data/raw/new_samples"
   sampling_conf_threshold: 0.4 # Collect if confidence is below this
   model_save_path: "models/checkpoints/best_custom.pt"
+
+# Individual Parking Slots
+parking_slots:
+  - id: 1
+    coordinates: [[280, 50], [350, 50], [350, 200], [280, 200]] # Bottom-Left Slot
+  - id: 2
+    coordinates: [[360, 50], [430, 50], [430, 200], [360, 200]]
+  - id: 3
+    coordinates: [[440, 50], [510, 50], [510, 200], [440, 200]] 
+  - id: 4
+    coordinates: [[520, 50], [590, 50], [590, 200], [520, 200]]
+  - id: 5
+    coordinates: [[290, 250], [360, 250], [360, 420], [290, 420]] # Second row
+  - id: 6
+    coordinates: [[370, 250], [440, 250], [440, 420], [370, 420]]
