@@ -30,6 +30,7 @@ import SupportTicketsPage from '@modules/Admin/Support/SupportTicketsPage';
 import ViolationsPage from '@modules/Admin/Violations/ViolationsPage';
 import ReportsPage from '@modules/Admin/Reports/ReportsPage';
 import ParkingManagementPage from '@modules/Admin/Parking/ParkingManagementPage';
+import PermitReviewPage from '@modules/Admin/Parking/PermitReviewPage';
 
 const PrivateRoute = () => {
   const { isLoggedIn } = useSelector((state: IRootState) => state.app.auth);
@@ -92,6 +93,7 @@ export const RouteNavigation = () => {
                 <Route path="/admin/users" element={<UserManagementPage />} />
                 <Route path="/admin/notifications" element={<StudentNotificationsPage />} />
                 <Route path="/admin/parking" element={<ParkingManagementPage />} />
+                <Route path="/admin/permits" element={<PermitReviewPage />} />
                 <Route path="/admin/violations" element={<ViolationsPage />} />
                 <Route path="/admin/reports" element={<ReportsPage />} />
                 

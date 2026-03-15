@@ -1,6 +1,6 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 import { logActivity } from '../utils/activityLogger.js';
 
 const router = express.Router();
@@ -131,6 +131,81 @@ router.post('/apply', authMiddleware, async (req: any, res) => {
   } catch (err: any) {
     console.error('Error applying for permit:', err);
     res.status(500).json({ error: 'Error applying for permit' });
+  }
+});
+
+// Admin Routes
+
+// GET /api/permits/admin/all
+// Get all permits (Admin only)
+router.get('/admin/all', authMiddleware, adminMiddleware, async (req: any, res) => {
+  try {
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+      global: { headers: { Authorization: req.headers.authorization! } }
+    });
+
+    const { data, error } = await supabase
+      .from('permits')
+      .select('*, profiles(full_name, email, student_id)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err: any) {
+    console.error('Error fetching all permits:', err);
+    res.status(500).json({ error: 'Error fetching permit applications' });
+  }
+});
+
+// PUT /api/permits/admin/:id/status
+// Update permit status (Admin only)
+router.put('/admin/:id/status', authMiddleware, adminMiddleware, async (req: any, res) => {
+  const { id } = req.params;
+  const { status, remarks, spot, zone } = req.body;
+
+  if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  try {
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+      global: { headers: { Authorization: req.headers.authorization! } }
+    });
+
+    const updates: any = { 
+      status, 
+      updated_at: new Date().toISOString() 
+    };
+    
+    if (status === 'Approved') {
+        updates.issue_date = new Date().toISOString();
+        const expiry = new Date();
+        expiry.setMonth(expiry.getMonth() + 6);
+        updates.expiry_date = expiry.toISOString();
+        if (spot) updates.spot = spot;
+        if (zone) updates.zone = zone;
+    }
+
+    const { data: permit, error } = await supabase
+      .from('permits')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Update profile status if needed
+    await supabase.from('profiles').update({ 
+        permit_status: status 
+    }).eq('id', permit.user_id);
+
+    await logActivity(supabase, req.user.id, 'UPDATE_PERMIT_STATUS', `Updated permit ${id} to ${status}`);
+
+    res.json(permit);
+  } catch (err: any) {
+    console.error('Error updating permit status:', err);
+    res.status(500).json({ error: 'Error updating permit' });
   }
 });
 

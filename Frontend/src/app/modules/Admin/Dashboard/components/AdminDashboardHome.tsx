@@ -7,6 +7,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@app/utils/services/api';
 
 interface MLZone {
@@ -29,6 +30,7 @@ interface MLStatus {
 
 const AdminDashboardHome: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [mlStatus, setMlStatus] = useState<MLStatus | null>(null);
 
   useEffect(() => {
@@ -205,12 +207,14 @@ const AdminDashboardHome: React.FC = () => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Quick Actions</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {[
-              { label: 'Live Stream', icon: <Car size={20} />, color: '#6366f1' },
-              { label: 'View Logs', icon: <Activity size={20} />, color: '#10b981' },
-              { label: 'Analytics', icon: <TrendingUp size={20} />, color: '#f59e0b' },
-              { label: 'Emergency', icon: <AlertCircle size={20} />, color: '#ef4444' },
+              { label: 'Live Stream', icon: <Car size={20} />, color: '#6366f1', path: '/admin/live-streams' },
+              { label: 'Review Permits', icon: <Activity size={20} />, color: '#10b981', path: '/admin/permits' },
+              { label: 'Analytics', icon: <TrendingUp size={20} />, color: '#f59e0b', path: '/admin/reports' },
+              { label: 'Emergency', icon: <AlertCircle size={20} />, color: '#ef4444', path: '/admin/settings' },
             ].map((action, i) => (
-              <div key={i} style={{
+              <div key={i} 
+                onClick={() => action.path && navigate(action.path)}
+                style={{
                 padding: '1.25rem',
                 borderRadius: '12px',
                 border: `1px solid ${theme.palette.divider}`,

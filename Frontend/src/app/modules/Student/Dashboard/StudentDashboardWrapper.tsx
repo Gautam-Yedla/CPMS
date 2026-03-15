@@ -2,12 +2,14 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
+import { Box, Typography, Chip, CircularProgress } from '@mui/material';
 import { 
   Car, 
-  Clock, 
   MapPin, 
   CreditCard, 
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  Clock,
 } from 'lucide-react';
 import { IRootState } from '@app/appReducer';
 
@@ -119,6 +121,35 @@ const StudentDashboardWrapper: React.FC = () => {
           </div>
         </div>
 
+        {/* Recent Tickets Snippet */}
+        <div style={{ 
+          backgroundColor: theme.palette.background.paper, 
+          borderRadius: '24px', 
+          boxShadow: theme.palette.mode === 'light' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
+          border: theme.palette.mode === 'dark' ? `1px solid ${theme.palette.divider}` : 'none',
+          padding: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.25rem'
+        }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: theme.palette.text.primary, margin: 0 }}>Recent Support Tickets</h2>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: theme.palette.primary.main, 
+                cursor: 'pointer', 
+                fontWeight: 700,
+                '&:hover': { textDecoration: 'underline' } 
+              }}
+              onClick={() => navigate('/student/report')}
+            >
+              View All
+            </Typography>
+          </Box>
+          <TicketHistorySnippet />
+        </div>
+
         {/* Quick Actions Card */}
         <div style={{ 
           backgroundColor: theme.palette.background.paper, 
@@ -133,6 +164,7 @@ const StudentDashboardWrapper: React.FC = () => {
               { label: 'Find Parking Spot', icon: <MapPin size={18} />, path: '/student/status' },
               { label: 'Renew Permit', icon: <CreditCard size={18} />, path: '/student/status' },
               { label: 'Report an Issue', icon: <AlertCircle size={18} />, path: '/student/report' },
+              { label: 'View My Tickets', icon: <MessageSquare size={18} />, path: '/student/report' },
             ].map((action, i) => (
               <button 
                 key={i}
@@ -170,6 +202,83 @@ const StudentDashboardWrapper: React.FC = () => {
       `}</style>
     </>
   );
+};
+
+const TicketHistorySnippet = () => {
+    const theme = useTheme();
+    const [tickets, setTickets] = React.useState<any[]>([]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const loadTickets = async () => {
+             try {
+                 const data = await api.fetchTickets();
+                 if (Array.isArray(data)) setTickets(data.slice(0, 2)); // Only show latest 2
+             } catch (e) {
+                 console.error("Failed to load tickets", e);
+             } finally {
+                 setLoading(false);
+             }
+        };
+        loadTickets();
+    }, []);
+
+    if (loading) return (
+        <Box display="flex" justifyContent="center" py={2}>
+            <CircularProgress size={24} />
+        </Box>
+    );
+    
+    if (tickets.length === 0) return (
+        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            No recent tickets.
+        </Typography>
+    );
+
+    return (
+        <Box sx={{ display: 'grid', gap: '1rem' }}>
+            {tickets.map(ticket => {
+                const statusStr = ticket.status?.toLowerCase() || 'open';
+                const statusColor = statusStr === 'open' ? '#10b981' : 
+                                  statusStr === 'pending' ? '#f59e0b' : '#64748b';
+                
+                return (
+                    <Box key={`${ticket.id}-${statusStr}`} sx={{
+                        p: 2,
+                        borderRadius: '16px',
+                        bgcolor: theme.palette.background.paper,
+                        border: `1px solid ${theme.palette.divider}`,
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
+                        <Box sx={{ 
+                            position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px',
+                            bgcolor: statusColor
+                        }} />
+                        <Box display="flex" justifyContent="space-between" mb={1}>
+                            <Typography variant="subtitle2" fontWeight="700" noWrap sx={{ maxWidth: '70%' }}>
+                                {ticket.subject}
+                            </Typography>
+                            <Chip 
+                                label={statusStr.charAt(0).toUpperCase() + statusStr.slice(1)} 
+                                size="small" 
+                                sx={{ 
+                                    height: '18px', fontSize: '0.65rem', fontWeight: 800,
+                                    bgcolor: `${statusColor}15`, color: statusColor, border: `1px solid ${statusColor}30`
+                                }} 
+                            />
+                        </Box>
+                        <Box display="flex" alignItems="center" gap={0.5} color="text.secondary">
+                             <Clock size={12} />
+                             <Typography variant="caption">
+                                 {new Date(ticket.created_at).toLocaleDateString()}
+                             </Typography>
+                        </Box>
+                    </Box>
+                );
+            })}
+        </Box>
+    );
 };
 
 

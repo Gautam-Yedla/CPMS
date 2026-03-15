@@ -8,20 +8,16 @@ export const getTickets = async (req: any, res: Response) => {
       global: { headers: { Authorization: req.headers.authorization! } }
     });
 
-    const { id: userId, role: authRole } = req.user; 
-    // Note: req.user.role is usually 'authenticated'. App role should be checked via profiles/metadata if needed.
-    // For now assuming existing logic relied on this or it's just for 'admin' check which might be in metadata.
-    // Let's check app_metadata for role if standard role is just 'authenticated'
-    const role = req.user.app_metadata?.role || req.user.user_metadata?.role || 'student';
-
+    const { id: userId, role } = req.user; 
+    
     console.log(`[getTickets] User: ${userId}, Role: ${role}`); // DEBUG LOG
 
     let query = supabase
       .from('support_tickets')
-      .select('*, profiles(full_name, email)'); // fetch email from profiles now
+      .select('*, profiles(full_name, email)'); 
 
     // If not admin, restrict to own tickets
-    if (role !== 'admin' && role !== 'Admin') {
+    if (role?.toLowerCase() !== 'admin') {
        query = query.eq('user_id', userId);
     }
 
