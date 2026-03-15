@@ -5,9 +5,8 @@ export const logActivity = async (supabase: any, userId: string, action: string,
       .from('activity_logs')
       .insert({
         user_id: userId,
-        action,
+        action_type: action,
         details,
-        timestamp: new Date().toISOString()
       });
     if (error) throw error;
   } catch (err: any) {

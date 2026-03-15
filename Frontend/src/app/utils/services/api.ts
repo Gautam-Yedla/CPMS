@@ -2,6 +2,10 @@ import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+if (import.meta.env.DEV) {
+  console.log(`[API] Using base URL: ${API_BASE_URL}`);
+}
+
 const getAuthToken = async () => {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token;
