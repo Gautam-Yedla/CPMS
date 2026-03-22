@@ -14,6 +14,13 @@ except ImportError:
     HAS_YOLO = False
     print("[WARN] ultralytics (YOLO) not found. Local models will be disabled.")
 import os
+import sys
+
+# Ensure the 'src' directory is in sys.path for Vercel/Serverless module discovery
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 import yaml
 from dotenv import load_dotenv
 from shapely.geometry import Polygon
@@ -31,11 +38,21 @@ CORS(app)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load config
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../configs/config.yaml')
-print(f"[DEBUG] Loading config from: {CONFIG_PATH}")
-with open(CONFIG_PATH, 'r') as f:
-    config = yaml.safe_load(f)
-print("[DEBUG] Config loaded successfully.")
+# Use absolute path relative to this script for reliable loading in cloud environments
+CONFIG_PATH = os.path.join(current_dir, '../configs/config.yaml')
+logging.info(f"[DEBUG] Loading config from: {CONFIG_PATH}")
+
+try:
+    with open(CONFIG_PATH, 'r') as f:
+        config = yaml.safe_load(f)
+    logging.info("[DEBUG] Config loaded successfully.")
+except Exception as e:
+    logging.error(f"[ERROR] Failed to load config: {e}")
+    # Fallback default config if file missing
+    config = {
+        'gemini': {'enabled': True, 'model_name': 'gemini-1.5-flash'},
+        'model': {'path': 'models/best.pt'}
+    }
 
 # ──────────────── MODEL INITIALIZATION ────────────────
 
