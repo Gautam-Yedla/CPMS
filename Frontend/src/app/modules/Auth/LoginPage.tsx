@@ -6,6 +6,7 @@ import { supabase } from '@utils/lib/supabase';
 import { mapErrorMessage } from '@utils/errorHelpers';
 import AuthLayout from '@app/Layout/legacy/AuthLayout';
 import Notification from '@shared/components/legacy/Notification';
+import { useTheme } from '@mui/material/styles';
 import { 
   sessionLogin, 
   sessionLoginSuccess, 
@@ -15,6 +16,7 @@ import {
 import { IRootState } from '@app/appReducer';
 
 const LoginPage: React.FC = () => {
+  const theme = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,7 +60,25 @@ const LoginPage: React.FC = () => {
 
         if (profileError) throw profileError;
 
-        dispatch(sessionLoginSuccess(profile));
+        // Check if approved
+        if (profile.is_approved === false) {
+            await supabase.auth.signOut();
+            throw new Error('Your account is pending admin approval. Please wait for an administrator to activate your access.');
+        }
+
+        // Fetch permissions
+        const { data: permissions } = await supabase
+          .from('role_permissions')
+          .select('permissions(*)')
+          .eq('role_id', (await supabase.from('roles').select('id').eq('name', profile.role).single()).data?.id);
+        
+        // Alternative: Use the new API endpoint if preferred, but here we use supabase directly for consistency with existing code
+        const userWithPermissions = { 
+          ...profile, 
+          permissions: permissions?.map((p: any) => p.permissions) || [] 
+        };
+
+        dispatch(sessionLoginSuccess(userWithPermissions));
       }
     } catch (err: any) {
       dispatch(sessionLoginFail(mapErrorMessage(err)));
@@ -150,6 +170,10 @@ const LoginPage: React.FC = () => {
         <p className="auth-footer-text">
           New student?{' '}
           <Link to="/register" className="auth-footer-link">Create an account</Link>
+        </p>
+        <p className="auth-footer-text" style={{ marginTop: '0.5rem' }}>
+          Faculty member?{' '}
+          <Link to="/register-faculty" className="auth-footer-link" style={{ color: theme.palette.secondary.main }}>Register here</Link>
         </p>
       </form>
     </AuthLayout>

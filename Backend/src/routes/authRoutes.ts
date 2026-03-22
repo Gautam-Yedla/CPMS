@@ -12,6 +12,7 @@ router.delete('/roles/:id', authMiddleware, authController.deleteRole);
 
 // Permissions
 router.get('/permissions', authMiddleware, authController.getPermissions);
+router.get('/permissions/me', authMiddleware, authController.getMyPermissions);
 router.post('/permissions', authMiddleware, authController.createPermission);
 
 // Role Permissions
@@ -22,8 +23,12 @@ router.delete('/roles/:roleId/permissions/:permissionId', authMiddleware, authCo
 // User Roles
 router.get('/users', authMiddleware, authController.getAllUsers); // Helper to get all users for assignment
 router.put('/users/:userId', authMiddleware, authController.updateUser);
+router.put('/users/:userId/approve', authMiddleware, authController.approveUser);
 router.get('/users/:userId/roles', authMiddleware, authController.getUserRoles);
 router.post('/users/:userId/roles', authMiddleware, authController.assignRoleToUser);
 router.delete('/users/:userId/roles/:roleId', authMiddleware, authController.removeRoleFromUser);
+
+// Emergency Seeding
+router.post('/seed-test', authController.seedDatabase);
 
 export default router;

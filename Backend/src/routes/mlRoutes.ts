@@ -7,18 +7,11 @@ import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
 
-const getSupabase = (req: any) => {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
-    global: { headers: { Authorization: req.headers.authorization! } }
-  });
-};
-
-// Get the absolute path to the status.json file
-// Note: In production, this should be configurable via env variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATUS_FILE_PATH = path.resolve(__dirname, '../../../ML/data/processed/status.json');
 
-router.get('/status', authMiddleware, async (req, res) => {
+router.get('/status', authMiddleware, async (req: any, res) => {
+  const supabase = req.supabase;
   try {
     if (!fs.existsSync(STATUS_FILE_PATH)) {
       return res.status(404).json({ 
@@ -33,7 +26,6 @@ router.get('/status', authMiddleware, async (req, res) => {
     // Fetch Active Violations
     let active_violations = 0;
     try {
-      const supabase = getSupabase(req);
       const { data: vData, error } = await supabase
         .from('violations')
         .select('id', { count: 'exact' })

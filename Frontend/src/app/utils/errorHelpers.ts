@@ -20,5 +20,9 @@ export const mapErrorMessage = (error: any): string => {
     return APP_ERRORS.INVALID_CREDENTIALS;
   }
 
+  if (error.message === 'User already registered') {
+    return 'This email is already registered. Please sign in instead.';
+  }
+
   return error.message || APP_ERRORS.GENERIC_ERROR;
 };

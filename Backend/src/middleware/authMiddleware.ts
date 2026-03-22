@@ -28,6 +28,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       { global: { headers: { Authorization: authHeader } } }
     );
 
+    // Attach authenticated client to request
+    (req as any).supabase = supabase;
+
     // FETCH GROUND TRUTH ROLE FROM DB
     // 1. Check user_roles junction table
     const { data: userRole, error: roleError } = await supabase

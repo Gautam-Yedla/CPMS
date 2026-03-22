@@ -7,5 +7,6 @@ const router = express.Router();
 router.get('/', authMiddleware, notificationController.getUserNotifications);
 router.post('/:id/read', authMiddleware, notificationController.markAsRead);
 router.post('/read-all', authMiddleware, notificationController.markAllAsRead);
+router.post('/trigger', authMiddleware, notificationController.triggerNotification);
 
 export default router;

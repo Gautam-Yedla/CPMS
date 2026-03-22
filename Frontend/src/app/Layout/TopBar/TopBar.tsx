@@ -18,6 +18,7 @@ import { IRootState } from '@app/appReducer';
 import { sessionLogout, setThemeMode } from '@modules/Auth/authActions';
 import NotificationPopover from './NotificationPopover';
 import { api } from '@utils/services/api';
+import { supabase } from '@utils/lib/supabase';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -35,6 +36,27 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   React.useEffect(() => {
     if (user?.id) {
       loadNotifications();
+
+      // Real-time listener
+      const channel = supabase
+        .channel(`user-notifications-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            setNotifications(prev => [payload.new, ...prev]);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user?.id]);
 

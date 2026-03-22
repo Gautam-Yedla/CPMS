@@ -39,7 +39,7 @@ router.get('/:userId/profile', authMiddleware, async (req, res) => {
 // Update user profile details
 router.put('/:userId/profile', authMiddleware, async (req: any, res) => {
   const { userId } = req.params;
-  const { full_name, department, avatar_url } = req.body;
+  const { full_name, department, avatar_url, preferences } = req.body;
 
   // Security check: ensure requesting user matches target user
   if (req.user.id !== userId) {
@@ -68,6 +68,7 @@ router.put('/:userId/profile', authMiddleware, async (req: any, res) => {
         full_name,
         department,
         avatar_url,
+        preferences,
         updated_at: new Date().toISOString()
       })
       .select()

@@ -37,6 +37,7 @@ interface User {
   created_at: string;
   role?: string;
   roles?: Role[];
+  is_approved?: boolean;
 }
 
 const UserManagementPage: React.FC = () => {
@@ -58,6 +59,7 @@ const UserManagementPageContent: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ role: '', department: '' });
+  const [viewMode, setViewMode] = useState<'all' | 'pending'>('all');
 
   const fetchUsers = async () => {
     try {
@@ -111,6 +113,16 @@ const UserManagementPageContent: React.FC = () => {
     }
   };
 
+  const handleApprove = async (userId: string) => {
+    try {
+      await api.approveUser(userId);
+      toast.success('User account approved successfully');
+      fetchUsers();
+    } catch (error) {
+      toast.error('Failed to approve account');
+    }
+  };
+
   return (
     <Box p={2} minHeight="calc(100vh - 100px)" display="flex" flexDirection="column">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -121,6 +133,39 @@ const UserManagementPageContent: React.FC = () => {
           <Typography variant="body1" color="text.secondary">Oversee and modify system user accounts, departments, and roles.</Typography>
         </div>
         <Box display="flex" gap={2} alignItems="center">
+          <Box display="flex" sx={{ background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', p: 0.5, borderRadius: '12px' }}>
+            <Button 
+                onClick={() => setViewMode('all')} 
+                sx={{ 
+                    borderRadius: '10px', 
+                    px: 3, 
+                    fontWeight: 600,
+                    background: viewMode === 'all' ? theme.palette.background.paper : 'transparent',
+                    boxShadow: viewMode === 'all' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    color: viewMode === 'all' ? theme.palette.primary.main : theme.palette.text.secondary
+                }}
+            >
+                All Personnel
+            </Button>
+            <Button 
+                onClick={() => setViewMode('pending')} 
+                sx={{ 
+                    borderRadius: '10px', 
+                    px: 3, 
+                    fontWeight: 600,
+                    background: viewMode === 'pending' ? theme.palette.background.paper : 'transparent',
+                    boxShadow: viewMode === 'pending' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    color: viewMode === 'pending' ? theme.palette.secondary.main : theme.palette.text.secondary
+                }}
+            >
+                Approval Requests
+                {users.filter(u => u.is_approved === false).length > 0 && (
+                    <Box sx={{ ml: 1, width: 20, height: 20, borderRadius: '50%', background: theme.palette.error.main, color: '#fff', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {users.filter(u => u.is_approved === false).length}
+                    </Box>
+                )}
+            </Button>
+          </Box>
           <Paper 
             elevation={0} 
             sx={{ 
@@ -130,12 +175,12 @@ const UserManagementPageContent: React.FC = () => {
               border: `1px solid ${theme.palette.divider}`,
               background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
               backdropFilter: 'blur(10px)',
-              width: '400px'
+              width: '350px'
             }}
           >
             <TextField 
               variant="standard" 
-              placeholder="Search personnel by name, email, department, or role..." 
+              placeholder="Filter by name, email..." 
               fullWidth 
               InputProps={{ 
                 disableUnderline: true, 
@@ -165,7 +210,9 @@ const UserManagementPageContent: React.FC = () => {
             gap: 3 
           }}
         >
-          {filteredUsers.map((user) => {
+          {filteredUsers
+            .filter(u => viewMode === 'all' || (viewMode === 'pending' && u.is_approved === false))
+            .map((user) => {
             const displayRole = user.role || (user.roles && user.roles.length > 0 ? user.roles[0].roles?.name : 'student');
             const isAdmin = displayRole?.toLowerCase() === 'admin';
 
@@ -266,6 +313,17 @@ const UserManagementPageContent: React.FC = () => {
                       <Calendar size={12} /> Joined {new Date(user.created_at).toLocaleDateString()}
                     </Typography>
                     <Box display="flex" gap={1}>
+                      {user.is_approved === false && (
+                          <Button 
+                            variant="contained" 
+                            size="small" 
+                            color="success" 
+                            onClick={() => handleApprove(user.id)}
+                            sx={{ borderRadius: '8px', fontWeight: 700, fontSize: '0.75rem' }}
+                          >
+                            Approve
+                          </Button>
+                      )}
                       <IconButton size="small" onClick={() => handleView(user)} sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.primary.main, background: `${theme.palette.primary.main}1A` }}}>
                         <Eye size={18} />
                       </IconButton>

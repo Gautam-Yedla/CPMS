@@ -17,6 +17,7 @@ export interface IUserState {
   vehicle_number?: string;
   vehicle_type?: string;
   avatar_url?: string;
+  permissions?: any[];
   created_at?: string;
 }
 

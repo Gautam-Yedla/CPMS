@@ -72,13 +72,14 @@ const StudentRegisterPage: React.FC = () => {
             vehicle_number: formData.vehicleNumber,
             vehicle_type: formData.vehicleType,
             role: 'student',
+            is_approved: false,
           });
 
         if (profileError) throw profileError;
       }
 
-      setSuccessMsg('Registration successful! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 3000);
+      setSuccessMsg('Registration submitted! An Admin will review your account soon. Redirecting to login...');
+      setTimeout(() => navigate('/login'), 4000);
     } catch (err: any) {
       setError(mapErrorMessage(err));
     } finally {

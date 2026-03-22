@@ -64,6 +64,8 @@ export const api = {
 
   // Dashboard
   fetchDashboardStats: () => request('/dashboard/stats'),
+  fetchSystemHealth: () => request('/dashboard/health'),
+  fetchZoneOccupancy: () => request('/dashboard/zones'),
 
   // Vehicles
   fetchVehicle: () => request('/vehicles'),
@@ -100,6 +102,9 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
+  approveUser: (id: string) => request(`/auth/users/${id}/approve`, {
+    method: 'PUT',
+  }),
   fetchRoles: () => request('/auth/roles'),
   createRole: (data: any) => request('/auth/roles', {
     method: 'POST',
@@ -123,6 +128,7 @@ export const api = {
 
   // Permissions
   fetchPermissions: () => request('/auth/permissions'),
+  fetchMyPermissions: () => request('/auth/permissions/me'),
   createPermission: (data: any) => request('/auth/permissions', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -191,4 +197,17 @@ export const api = {
     body: JSON.stringify({ cameraId, image, timestamp }),
   }),
   fetchStreamHealth: () => request('/stream/health'),
+  
+  // Analytics & Reports
+  fetchAnalytics: (params: any) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+      }
+    });
+    return request(`/reports/analytics?${searchParams.toString()}`);
+  },
+
+  seedDatabase: () => request('/auth/seed-test', { method: 'POST' }),
 };

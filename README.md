@@ -1,4 +1,4 @@
-# CPMS - Car Parking Management System
+# CPMS - College Parking Management System
 
 An integrated university-scale solution for automated parking operations, security oversight, and real-time monitoring.
 

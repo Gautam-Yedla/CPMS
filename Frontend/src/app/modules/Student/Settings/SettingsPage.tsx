@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from '@mui/material/styles';
+import { api } from '@utils/services/api';
 import { 
   Bell, 
   Lock, 
@@ -21,7 +22,7 @@ import { setThemeMode } from '@modules/Auth/authActions';
 const SettingsPage: React.FC = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const { theme: themeMode } = useSelector((state: IRootState) => state.app.auth);
+  const { theme: themeMode, user } = useSelector((state: IRootState) => state.app.auth);
   const isDark = theme.palette.mode === 'dark';
 
   const [notifications, setNotifications] = useState({
@@ -34,6 +35,16 @@ const SettingsPage: React.FC = () => {
 
   const [saveStatus, setSaveStatus] = useState<null | 'saving' | 'saved'>(null);
 
+  useEffect(() => {
+    if (user?.id) {
+        api.fetchUserProfile(user.id).then(profile => {
+            if (profile.preferences?.notifications) {
+                setNotifications(profile.preferences.notifications);
+            }
+        });
+    }
+  }, [user?.id]);
+
   const toggleNotification = (key: keyof typeof notifications) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -42,12 +53,19 @@ const SettingsPage: React.FC = () => {
     dispatch(setThemeMode(themeMode === 'light' ? 'dark' : 'light'));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!user?.id) return;
     setSaveStatus('saving');
-    setTimeout(() => {
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus(null), 2000);
-    }, 1000);
+    try {
+        await api.updateUserProfile(user.id, {
+            preferences: { notifications }
+        });
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err) {
+        setSaveStatus(null);
+        console.error('Failed to save settings', err);
+    }
   };
 
   return (

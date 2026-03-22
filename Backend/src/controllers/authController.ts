@@ -233,3 +233,74 @@ export const updateUser = async (req: Request, res: Response) => {
         res.status(500).json({ error: err.message });
     }
 }
+
+export const approveUser = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { error } = await getSupabase(req)
+            .from('profiles')
+            .update({ is_approved: true })
+            .eq('id', userId);
+
+        if (error) throw error;
+        res.json({ message: 'User approved successfully' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+}
+
+export const getMyPermissions = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const supabase = getSupabase(req);
+
+        // Fetch permissions for the user's role
+        const { data, error } = await supabase
+            .from('user_roles')
+            .select('roles(role_permissions(permissions(*)))')
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        // Flatten the nested structure
+        const permissions = data.flatMap((ur: any) => 
+            ur.roles.role_permissions.map((rp: any) => rp.permissions)
+        );
+
+        res.json(permissions);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+}
+export const seedDatabase = async (req: Request, res: Response) => {
+    try {
+        const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+
+        // 1. Roles
+        const roles = [
+            { name: 'Admin', description: 'System Administrator', is_system: true },
+            { name: 'Student', description: 'Campus Student', is_system: true },
+            { name: 'Faculty', description: 'Campus Faculty', is_system: true },
+            { name: 'Security', description: 'Security Personnel', is_system: true }
+        ];
+
+        for (const role of roles) {
+            await supabase.from('roles').upsert(role, { onConflict: 'name' });
+        }
+
+        // 2. Sample Permissions
+        const permissions = [
+            { name: 'vehicles.manage', module: 'Vehicles', description: 'Manage vehicles' },
+            { name: 'reports.view', module: 'Analytics', description: 'View reports' },
+            { name: 'cameras.view', module: 'Monitoring', description: 'View cameras' }
+        ];
+
+        for (const perm of permissions) {
+            await supabase.from('permissions').upsert(perm, { onConflict: 'name' });
+        }
+
+        res.json({ message: 'Seeding attempted. Please check DB for results.' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+};

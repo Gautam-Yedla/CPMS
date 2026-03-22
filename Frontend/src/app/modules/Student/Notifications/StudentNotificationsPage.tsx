@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
+import { Box } from '@mui/material';
 import { 
   Bell, 
   CheckCheck, 
   AlertTriangle, 
   Info, 
   Clock,
-  CheckCircle
+  CheckCircle,
+  Zap
 } from 'lucide-react';
 import { api } from '@utils/services/api';
 import Notification from '@shared/components/legacy/Notification';
+import { supabase } from '@app/utils/lib/supabase';
+import { useSelector } from 'react-redux';
+import { IRootState } from '@app/appReducer';
 
 const StudentNotificationsPage: React.FC = () => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const { user } = useSelector((state: IRootState) => state.app.auth);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -21,7 +27,31 @@ const StudentNotificationsPage: React.FC = () => {
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+    
+    // Real-time listener
+    if (user?.id) {
+        const channel = supabase
+            .channel(`user-notifications-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`
+                },
+                (payload) => {
+                    setNotifications(prev => [payload.new, ...prev]);
+                    setToast({ message: `New notification: ${payload.new.title}`, type: 'success' });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }
+  }, [user?.id]);
 
   const loadNotifications = async () => {
     try {
@@ -95,14 +125,17 @@ const StudentNotificationsPage: React.FC = () => {
           marginBottom: '2rem' 
         }}>
           <div>
-            <h1 style={{ 
-              fontSize: '2rem', 
-              fontWeight: 800, 
-              color: theme.palette.text.primary, 
-              marginBottom: '0.5rem',
-              letterSpacing: '-0.025em'
-            }}>Notifications</h1>
-            <p style={{ color: theme.palette.text.secondary }}>Stay updated with your permits and campus alerts.</p>
+            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                <Zap size={24} color={theme.palette.warning.main} />
+                <h1 style={{ 
+                fontSize: '2rem', 
+                fontWeight: 800, 
+                color: theme.palette.text.primary, 
+                margin: 0,
+                letterSpacing: '-0.025em'
+                }}>Notifications</h1>
+            </Box>
+            <p style={{ color: theme.palette.text.secondary }}>Stay updated with real-time alerts and campus status.</p>
           </div>
           <button 
             onClick={handleMarkAllRead}

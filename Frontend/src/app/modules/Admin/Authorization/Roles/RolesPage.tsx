@@ -97,6 +97,17 @@ const RolesPage: React.FC = () => {
     setFormData({ name: '', description: '' });
   };
 
+  const handleEmergencySeed = async () => {
+    try {
+      await api.seedDatabase();
+      toast.success('Seeding attempted. Refreshing...');
+      fetchRoles();
+      fetchAllPermissions();
+    } catch (error: any) {
+      toast.error(error.message || 'Seeding failed');
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       if (editingRole) {
@@ -357,6 +368,26 @@ const RolesPage: React.FC = () => {
             </Fade>
           );
         })}
+
+        {filteredRoles.length === 0 && (
+          <Box gridColumn="1 / -1" textAlign="center" py={12}>
+            <Box sx={{ mb: 2, opacity: 0.15 }}>
+              <Shield size={80} />
+            </Box>
+            <Typography variant="h5" fontWeight="800" gutterBottom>No Authorization Data</Typography>
+            <Typography color="text.secondary" sx={{ mb: 4, maxWidth: '400px', mx: 'auto' }}>
+                Structural roles and capabilities are missing. Initialize the system to restore default patterns.
+            </Typography>
+            <Button 
+                variant="outlined" 
+                size="large" 
+                onClick={handleEmergencySeed}
+                sx={{ borderRadius: '12px', px: 4 }}
+            >
+                Initialize System Defaults
+            </Button>
+          </Box>
+        )}
       </Box>
 
       {/* Permissions Drawer */}

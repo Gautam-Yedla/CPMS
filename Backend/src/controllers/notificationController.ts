@@ -1,13 +1,14 @@
 import type { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { NotificationService, NotificationChannel } from '../services/notificationService.js';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
 export const getUserNotifications = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
+    const supabase = (req as any).supabase; // Use authenticated client from middleware
     
-    // Auth middleware ensures (req as any).user exists
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
@@ -26,24 +27,21 @@ export const markAsRead = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { id } = req.params;
+    const supabase = (req as any).supabase;
 
     const { data, error } = await supabase
       .from('notifications')
       .update({ is_read: true })
-      .match({ id, user_id: userId }) // Ensure the specific notification belongs to the user
+      .match({ id, user_id: userId })
       .select()
       .single();
 
     if (error) throw error;
-    
-    // Might return 404 naturally if match fails to find a record,
-    // but the supabase JS client throws PGRST116 for single() when 0 rows match
     res.json(data);
   } catch (err: any) {
     if (err.code === 'PGRST116') {
       return res.status(404).json({ error: 'Notification not found or unauthorized' });
     }
-    console.error(`Error marking notification as read (id=${req.params.id}):`, err);
     res.status(500).json({ error: 'Error updating notification' });
   }
 };
@@ -51,6 +49,7 @@ export const markAsRead = async (req: Request, res: Response) => {
 export const markAllAsRead = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
+    const supabase = (req as any).supabase;
 
     const { data, error } = await supabase
       .from('notifications')
@@ -61,7 +60,22 @@ export const markAllAsRead = async (req: Request, res: Response) => {
     if (error) throw error;
     res.json({ message: 'All notifications marked as read', updatedCount: data?.length || 0 });
   } catch (err: any) {
-    console.error('Error marking all notifications as read:', err);
     res.status(500).json({ error: 'Error processing request' });
   }
+};
+
+/**
+ * Generic notification trigger (Internal or Admin use)
+ */
+export const triggerNotification = async (req: Request, res: Response) => {
+    try {
+        const { userId, title, description, type, channels } = req.body;
+        
+        await NotificationService.notify(userId, { title, description, type }, channels);
+        
+        res.json({ success: true, message: 'Notification dispatched' });
+    } catch (err) {
+        console.error('Trigger Notification Error:', err);
+        res.status(500).json({ error: 'Failed to dispatch notification' });
+    }
 };
