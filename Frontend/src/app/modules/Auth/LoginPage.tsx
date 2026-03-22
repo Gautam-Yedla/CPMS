@@ -66,16 +66,38 @@ const LoginPage: React.FC = () => {
             throw new Error('Your account is pending admin approval. Please wait for an administrator to activate your access.');
         }
 
-        // Fetch permissions
-        const { data: permissions } = await supabase
-          .from('role_permissions')
-          .select('permissions(*)')
-          .eq('role_id', (await supabase.from('roles').select('id').eq('name', profile.role).single()).data?.id);
+        // Fetch role ID (case-insensitive)
+        const roleName = profile.role || '';
+        const { data: roleData } = await supabase
+          .from('roles')
+          .select('id')
+          .ilike('name', roleName)
+          .maybeSingle();
+
+        const roleId = roleData?.id;
+        let userPermissions: any[] = [];
+
+        if (roleId) {
+          try {
+            // Fetch permissions for the found role
+            const { data: permData, error: permError } = await supabase
+              .from('role_permissions')
+              .select('permissions(*)')
+              .eq('role_id', roleId);
+            
+            if (!permError && permData) {
+              userPermissions = permData.map((p: any) => p.permissions).filter(Boolean);
+            }
+          } catch (pErr) {
+            console.warn('Failed to fetch specific permissions:', pErr);
+          }
+        } else {
+          console.warn(`Role '${roleName}' not found in database for permission lookup.`);
+        }
         
-        // Alternative: Use the new API endpoint if preferred, but here we use supabase directly for consistency with existing code
         const userWithPermissions = { 
           ...profile, 
-          permissions: permissions?.map((p: any) => p.permissions) || [] 
+          permissions: userPermissions
         };
 
         dispatch(sessionLoginSuccess(userWithPermissions));
