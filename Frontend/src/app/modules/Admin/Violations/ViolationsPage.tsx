@@ -29,6 +29,9 @@ const ViolationsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+
   const fetchViolations = async () => {
     try {
       setLoading(true);
@@ -60,25 +63,32 @@ const ViolationsPage: React.FC = () => {
     };
   }, [violations]);
 
+  const uniqueTypes = useMemo(() => {
+    return Array.from(new Set(violations.map(v => v.violation_type)));
+  }, [violations]);
+
   const filteredViolations = useMemo(() => {
     return violations
-      .filter(v => 
-        v.vehicle_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.violation_type.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      .filter(v => {
+        const matchesSearch = v.vehicle_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              v.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'All' || v.status === statusFilter;
+        const matchesType = typeFilter === 'All' || v.violation_type === typeFilter;
+        return matchesSearch && matchesStatus && matchesType;
+      })
       .sort((a, b) => new Date(b.violation_date).getTime() - new Date(a.violation_date).getTime());
-  }, [violations, searchTerm]);
+  }, [violations, searchTerm, statusFilter, typeFilter]);
 
   return (
     <Box p={2} minHeight="calc(100vh - 100px)" display="flex" flexDirection="column">
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
         <div>
           <Typography fontWeight="700" sx={{ fontSize: '1.875rem', color: theme.palette.text.primary, mb: 0.5 }}>
             System Infractions & Violations
           </Typography>
           <Typography variant="body1" color="text.secondary">Live monitoring of restricted access and parking violations</Typography>
         </div>
-        <Box display="flex" gap={2} alignItems="center">
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
           <Paper 
             elevation={0} 
             sx={{ 
@@ -88,7 +98,7 @@ const ViolationsPage: React.FC = () => {
               border: `1px solid ${theme.palette.divider}`,
               background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
               backdropFilter: 'blur(10px)',
-              width: '280px'
+              width: '240px'
             }}
           >
             <TextField 
@@ -104,6 +114,48 @@ const ViolationsPage: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </Paper>
+          
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '12px',
+              border: `1px solid ${theme.palette.divider}`,
+              background: theme.palette.background.paper,
+              color: theme.palette.text.primary,
+              outline: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.9rem'
+            }}
+          >
+            <option value="All">All Statuses</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Paid">Paid</option>
+            <option value="Appealed">Appealed</option>
+            <option value="Dismissed">Dismissed</option>
+          </select>
+          
+          <select 
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '12px',
+              border: `1px solid ${theme.palette.divider}`,
+              background: theme.palette.background.paper,
+              color: theme.palette.text.primary,
+              outline: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              maxWidth: '200px'
+            }}
+          >
+            <option value="All">All Violation Types</option>
+            {uniqueTypes.map(type => <option key={type} value={type}>{type}</option>)}
+          </select>
         </Box>
       </Box>
 
@@ -113,14 +165,14 @@ const ViolationsPage: React.FC = () => {
           { 
             title: 'Critical Unpaid', 
             val: stats.unpaidCount, 
-            sub: `$${stats.unpaidTotal.toFixed(2)} pending recovery`, 
+            sub: `₹${stats.unpaidTotal.toFixed(2)} pending recovery`, 
             icon: <AlertOctagon size={28} />, 
             color: theme.palette.error.main 
           },
           { 
             title: 'Severe Infractions', 
             val: stats.severeCount, 
-            sub: 'Over $100 penalty', 
+            sub: 'Over ₹100 penalty', 
             icon: <AlertTriangle size={28} />, 
             color: theme.palette.warning.main 
           },
@@ -248,7 +300,7 @@ const ViolationsPage: React.FC = () => {
                       </Typography>
                       <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1.5}>
                         <Typography variant="h6" fontWeight="800" color={isUnpaid ? theme.palette.error.main : 'text.primary'}>
-                          ${v.amount.toFixed(2)}
+                          ₹{v.amount.toFixed(2)}
                         </Typography>
                         <Chip 
                           label={v.status} 

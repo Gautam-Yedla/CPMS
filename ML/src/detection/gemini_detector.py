@@ -194,7 +194,10 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
                 return detections
                 
             except Exception as e:
+                import traceback
+                error_detail = traceback.format_exc()
                 logging.error(f"[GEMINI] Attempt {attempt + 1} failed: {e}")
+                logging.debug(f"[GEMINI] Stack trace: {error_detail}")
                 if attempt < retry_count:
                     time.sleep(1)  # Brief pause before retry
                     continue

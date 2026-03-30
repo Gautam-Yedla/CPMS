@@ -270,7 +270,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
               }}>
                 <div style={{ padding: '0.5rem' }}>
                   <Link 
-                    to={user?.role === 'admin' ? "/admin/profile" : "/student/profile"}
+                    to="/profile"
                     onClick={() => setShowUserMenu(false)}
                     style={{ ...menuItemStyle(theme), textDecoration: 'none' }}
                   >
@@ -278,7 +278,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
                     My Profile
                   </Link>
                   <Link 
-                    to={user?.role === 'admin' ? "/admin/settings" : "/student/settings"}
+                    to="/settings"
                     onClick={() => setShowUserMenu(false)}
                     style={{ ...menuItemStyle(theme), textDecoration: 'none' }}
                   >

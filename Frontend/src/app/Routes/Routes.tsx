@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import LoginPage from '@modules/Auth/LoginPage';
@@ -92,7 +93,9 @@ export const RouteNavigation = () => {
             </Route>
 
             <Route element={<PermissionRoute permission="zones.faculty.view" />}>
-                <Route path="/zones" element={<div style={{ padding: '2rem' }}><h1>Zone Monitoring</h1><p>Faculty zone occupancy tracking.</p></div>} />
+                <Route path="/zones" element={<React.Suspense fallback={<div>Loading...</div>}>
+                  {React.createElement(React.lazy(() => import('@modules/Faculty/Zones/ZoneMonitoringPage')))}
+                </React.Suspense>} />
             </Route>
 
             <Route element={<PermissionRoute permission="system.health.view" />}>
