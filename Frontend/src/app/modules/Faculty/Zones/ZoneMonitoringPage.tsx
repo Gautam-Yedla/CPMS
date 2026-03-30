@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Typography, Paper, useTheme, Grid, CircularProgress, Chip } from '@mui/material';
 import { Navigation, MapPin, Activity, CheckCircle, AlertTriangle } from 'lucide-react';
 import { api } from '@utils/services/api';

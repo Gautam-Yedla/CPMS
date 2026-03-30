@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Paper, useTheme, Button, Avatar, Chip, TextField, InputAdornment, LinearProgress, CircularProgress } from '@mui/material';
 import { ParkingCircle, Plus, Search, Car, AlertTriangle, Key } from 'lucide-react';
 import { api } from '@utils/services/api';
