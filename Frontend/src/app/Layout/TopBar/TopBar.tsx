@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { 
   Bell, 
   User, 
@@ -24,13 +25,27 @@ interface TopBarProps {
   onMenuClick: () => void;
 }
 
+interface INotification {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+  [key: string]: unknown;
+}
+
 const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const dispatch = useDispatch();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery('(max-width:400px)');
+  
   const { user, theme: themeMode } = useSelector((state: IRootState) => state.app.auth);
+
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<HTMLElement | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<INotification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   React.useEffect(() => {
@@ -49,7 +64,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            setNotifications(prev => [payload.new, ...prev]);
+            setNotifications(prev => [payload.new as INotification, ...prev]);
           }
         )
         .subscribe();
@@ -103,7 +118,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   return (
     <nav style={{ 
       backgroundColor: theme.palette.background.paper, 
-      padding: '0.75rem 1.5rem', 
+      padding: isMobile ? '0.5rem 0.75rem' : '0.75rem 1.5rem', 
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center',
@@ -114,7 +129,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
       zIndex: 100,
       height: '64px'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '1rem' }}>
         <button 
           onClick={onMenuClick}
           style={{ 
@@ -132,24 +147,30 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
         >
           <Menu size={20} />
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem' }}>
           <div style={{ 
             backgroundColor: theme.palette.primary.main, 
-            width: '32px', 
-            height: '32px', 
+            width: isSmallMobile ? '28px' : '32px', 
+            height: isSmallMobile ? '28px' : '32px', 
             borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'white'
           }}>
-            <Car size={18} />
+            <Car size={isSmallMobile ? 16 : 18} />
           </div>
-          <span style={{ fontWeight: 700, fontSize: '1.125rem', color: theme.palette.text.primary, letterSpacing: '-0.025em' }}>CPMS</span>
+          <span style={{ 
+            fontWeight: 700, 
+            fontSize: isSmallMobile ? '1rem' : '1.125rem', 
+            color: theme.palette.text.primary, 
+            letterSpacing: '-0.025em',
+            display: isSmallMobile ? 'none' : 'block'
+          }}>CPMS</span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '1.25rem' }}>
         <button 
           onClick={toggleTheme}
           style={{ 
@@ -200,7 +221,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
           <NotificationPopover 
             anchorEl={notificationAnchorEl} 
             onClose={() => setNotificationAnchorEl(null)}
-            notifications={notifications}
+            notifications={notifications as any}
             loading={loadingNotifications}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}
@@ -208,11 +229,13 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
           />
         </div>
         
-        <div style={{ 
-          height: '32px', 
-          width: '1px', 
-          backgroundColor: theme.palette.divider 
-        }}></div>
+        {!isSmallMobile && (
+          <div style={{ 
+            height: '32px', 
+            width: '1px', 
+            backgroundColor: theme.palette.divider 
+          }}></div>
+        )}
 
         <div style={{ position: 'relative' }}>
           <div 
@@ -220,7 +243,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '0.75rem',
+              gap: isMobile ? '0.25rem' : '0.75rem',
               cursor: 'pointer',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -228,13 +251,15 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             }}
             className="hover-bg"
           >
-            <div style={{ textAlign: 'right', display: 'none', md: 'block' } as any} className="md-block">
-              <div style={{ fontWeight: 600, fontSize: '0.875rem', color: theme.palette.text.primary }}>{user?.full_name}</div>
-              <div style={{ fontSize: '0.75rem', color: theme.palette.text.secondary, textTransform: 'capitalize' }}>{user?.role}</div>
-            </div>
+            {!isMobile && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.875rem', color: theme.palette.text.primary }}>{user?.full_name}</div>
+                <div style={{ fontSize: '0.75rem', color: theme.palette.text.secondary, textTransform: 'capitalize' }}>{user?.role}</div>
+              </div>
+            )}
             <div style={{ 
-              width: '36px', 
-              height: '36px', 
+              width: isMobile ? '32px' : '36px', 
+              height: isMobile ? '32px' : '36px', 
               borderRadius: '10px', 
               backgroundColor: theme.palette.primary.main + '15',
               display: 'flex',
@@ -243,9 +268,9 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
               color: theme.palette.primary.main,
               border: `1px solid ${theme.palette.primary.main}20`
             }}>
-              <User size={20} />
+              <User size={isMobile ? 18 : 20} />
             </div>
-            <ChevronDown size={16} color={theme.palette.text.secondary} style={{ transform: showUserMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            {!isSmallMobile && <ChevronDown size={14} color={theme.palette.text.secondary} style={{ transform: showUserMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />}
           </div>
 
           {showUserMenu && (
@@ -258,7 +283,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
                 position: 'absolute',
                 top: '100%',
                 right: 0,
-                width: '240px',
+                width: isSmallMobile ? '200px' : '240px',
                 backgroundColor: theme.palette.background.paper,
                 borderRadius: '16px',
                 marginTop: '10px',
@@ -269,6 +294,12 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
                 animation: 'popIn 0.2s ease-out'
               }}>
                 <div style={{ padding: '0.5rem' }}>
+                  {isMobile && (
+                    <div style={{ padding: '0.75rem 1rem 0.5rem', borderBottom: `1px solid ${theme.palette.divider}`, marginBottom: '0.5rem' }}>
+                       <div style={{ fontWeight: 700, fontSize: '0.875rem', color: theme.palette.text.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.full_name}</div>
+                       <div style={{ fontSize: '0.75rem', color: theme.palette.text.secondary, textTransform: 'capitalize' }}>{user?.role}</div>
+                    </div>
+                  )}
                   <Link 
                     to="/profile"
                     onClick={() => setShowUserMenu(false)}
@@ -302,9 +333,6 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
       <style>{`
         .hover-bg:hover { background-color: ${themeMode === 'light' ? '#f1f5f9' : '#334155'}; }
         .hover-bg-red:hover { background-color: ${themeMode === 'light' ? '#fef2f2' : '#452121'}; }
-        @media (max-width: 768px) {
-          .md-block { display: none !important; }
-        }
         @keyframes popIn {
           from { opacity: 0; transform: translateY(-10px) scale(0.95); }
           to { opacity: 1; transform: translateY(0) scale(1); }
@@ -314,7 +342,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   );
 };
 
-const menuItemStyle = (theme: any) => ({
+const menuItemStyle = (theme: { palette: { text: { primary: string }; mode: string } }) => ({
   width: '100%',
   display: 'flex',
   alignItems: 'center',
@@ -331,6 +359,6 @@ const menuItemStyle = (theme: any) => ({
   '&:hover': {
     backgroundColor: theme.palette.mode === 'light' ? '#f1f5f9' : '#334155'
   }
-} as any);
+});
 
 export default TopBar;

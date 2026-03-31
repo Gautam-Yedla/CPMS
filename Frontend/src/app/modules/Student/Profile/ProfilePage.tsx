@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { 
   Car, 
   Shield,
@@ -8,7 +9,8 @@ import {
   Camera,
   X,
   Save,
-  Loader2
+  Loader2,
+  User as UserIcon
 } from 'lucide-react';
 import { IRootState } from '@app/appReducer';
 import { api } from '@utils/services/api';
@@ -17,15 +19,19 @@ import Notification, { NotificationType } from '@shared/components/legacy/Notifi
 
 const ProfilePage: React.FC = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallMobile = useMediaQuery('(max-width:400px)');
+  const isTinyMobile = useMediaQuery('(max-width:340px)');
+  
   const dispatch = useDispatch();
   const { user } = useSelector((state: IRootState) => state.app.auth);
   const isDark = theme.palette.mode === 'dark';
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
   
-  // Edit Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     full_name: '',
@@ -33,8 +39,7 @@ const ProfilePage: React.FC = () => {
     student_id: ''
   });
   const [saving, setSaving] = useState(false);
-
-  // Notification State
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [notification, setNotification] = useState<{ message: string, type: NotificationType } | null>(null);
 
   useEffect(() => {
@@ -45,20 +50,11 @@ const ProfilePage: React.FC = () => {
     if (!user?.id) return;
     try {
       setLoading(true);
-      
       const promises: Promise<any>[] = [api.fetchUserProfile(user.id)];
-      
-      // Only fetch vehicle for students
-      if (user.role === 'student') {
-          promises.push(api.fetchVehicle());
-      }
-
+      if (user.role === 'student') promises.push(api.fetchVehicle());
       const results = await Promise.all(promises);
       setProfile(results[0]);
-      
-      if (user.role === 'student' && results[1]) {
-          setVehicle(results[1]);
-      }
+      if (user.role === 'student' && results[1]) setVehicle(results[1]);
     } catch (err) {
       console.error('Failed to load profile data', err);
     } finally {
@@ -75,6 +71,37 @@ const ProfilePage: React.FC = () => {
     setIsEditOpen(true);
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    try {
+      setAvatarUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await api.uploadMedia(formData);
+      const avatarUrl = uploadRes.url;
+
+      const updatedProfile = await api.updateUserProfile(user.id, {
+        avatar_url: avatarUrl
+      });
+
+      setProfile(updatedProfile);
+      dispatch(receiveUserData({ ...user, ...updatedProfile }));
+      setNotification({ message: 'Profile picture updated!', type: 'success' });
+    } catch (err) {
+      console.error('Avatar upload failed', err);
+      setNotification({ message: 'Failed to upload image.', type: 'error' });
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!user?.id) return;
     try {
@@ -83,7 +110,6 @@ const ProfilePage: React.FC = () => {
         full_name: editForm.full_name,
         department: editForm.department
       });
-      
       setProfile(updatedProfile);
       dispatch(receiveUserData({ ...user, ...updatedProfile }));
       setIsEditOpen(false);
@@ -96,7 +122,7 @@ const ProfilePage: React.FC = () => {
   };
 
   if (loading && !profile) {
-    return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading profile...</div>;
+    return <div style={{ padding: '4rem', textAlign: 'center', color: theme.palette.text.secondary }}>Loading Profile...</div>;
   }
 
   return (
@@ -109,266 +135,234 @@ const ProfilePage: React.FC = () => {
         />
       )}
 
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <header style={{ marginBottom: '3rem' }}>
-          <h1 style={{ 
-            fontSize: '2.25rem', 
-            fontWeight: 800, 
-            color: theme.palette.text.primary, 
-            marginBottom: '0.5rem',
-            letterSpacing: '-0.025em'
-          }}>My Profile</h1>
-          <p style={{ color: theme.palette.text.secondary }}>Manage your personal information and account preferences.</p>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: isTinyMobile ? '0.25rem' : '0' }}>
+        <header style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'flex-start' : 'center',
+          flexDirection: 'row', // Keep it row to allow button on top right
+          gap: '1rem',
+          marginBottom: isMobile ? '1.5rem' : '3rem' 
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ 
+              fontSize: isSmallMobile ? '1.5rem' : '1.875rem', 
+              fontWeight: 700, 
+              color: theme.palette.text.primary, 
+              marginBottom: '0.25rem',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>My Profile</h1>
+            <p style={{ color: theme.palette.text.secondary, fontSize: '0.8125rem' }}>Personal identification and status.</p>
+          </div>
+          <button 
+            onClick={handleEditClick}
+            style={{
+              backgroundColor: theme.palette.primary.main,
+              color: 'white',
+              border: 'none',
+              padding: isMobile ? '0.75rem' : '0.875rem 1.5rem',
+              borderRadius: isMobile ? '50%' : '14px',
+              fontWeight: 700,
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              width: isMobile ? '44px' : 'auto',
+              height: isMobile ? '44px' : 'auto',
+              cursor: 'pointer',
+              boxShadow: !isDark ? '0 10px 15px -3px rgba(99, 102, 241, 0.3)' : 'none',
+              transition: 'all 0.3s ease',
+              flexShrink: 0
+            }}
+            title="Edit Details"
+          >
+            <Edit2 size={isMobile ? 20 : 18} /> 
+            {!isMobile && 'Edit Details'}
+          </button>
         </header>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2.5rem' }}>
-          {/* Left Column - Avatar & Quick Info */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <div style={{ 
-              backgroundColor: theme.palette.background.paper,
-              padding: '2rem',
-              borderRadius: '24px',
-              textAlign: 'center',
-              border: isDark ? `1px solid ${theme.palette.divider}` : 'none',
-              boxShadow: !isDark ? '0 10px 15px -3px rgba(0,0,0,0.05)' : 'none'
-            }}>
-              <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 1.5rem' }}>
-                <div style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  borderRadius: '32px', 
-                  backgroundColor: theme.palette.primary.main + '15',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: theme.palette.primary.main,
-                  fontSize: '2.5rem',
-                  fontWeight: 700
-                }}>
-                  {profile?.full_name?.charAt(0) || user?.full_name?.charAt(0)}
-                </div>
-                <button style={{
-                  position: 'absolute',
-                  bottom: '-5px',
-                  right: '-5px',
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '12px',
-                  backgroundColor: theme.palette.primary.main,
-                  color: 'white',
-                  border: `3px solid ${theme.palette.background.paper}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}>
-                  <Camera size={16} />
-                </button>
-              </div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.25rem' }}>{profile?.full_name || user?.full_name}</h2>
-              <p style={{ color: theme.palette.text.secondary, fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                  {user?.role === 'student' ? `Student ID: ${profile?.student_id || 'N/A'}` : capitalize(user?.role || 'User')}
-              </p>
-              
-              <div style={{ 
-                backgroundColor: theme.palette.success.main + '10',
-                color: theme.palette.success.main,
-                padding: '0.5rem',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                display: 'inline-block'
-              }}>
-                ACCOUNT ACTIVE
-              </div>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))', 
+          gap: isMobile ? '1.25rem' : '2rem' 
+        }}>
+          {/* Avatar & Summary Card */}
+          <section style={cardStyle(theme, isDark, isMobile)}>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              style={{ display: 'none' }} 
+              accept="image/*" 
+            />
+            <div style={{ textAlign: 'center', padding: isMobile ? '0.5rem 0' : '1.5rem 0' }}>
+               <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 1.5rem' }}>
+                  <div style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    borderRadius: '40px', 
+                    backgroundColor: theme.palette.primary.main + '15',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '3rem',
+                    fontWeight: 800,
+                    color: theme.palette.primary.main,
+                    overflow: 'hidden',
+                    position: 'relative'
+                  }}>
+                    {avatarUploading ? (
+                      <Loader2 className="spin" size={40} />
+                    ) : profile?.avatar_url ? (
+                      <img 
+                        src={profile.avatar_url} 
+                        alt="Avatar" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      />
+                    ) : (
+                      profile?.full_name?.charAt(0) || user?.full_name?.charAt(0)
+                    )}
+                  </div>
+                  <button 
+                    onClick={handleAvatarClick}
+                    disabled={avatarUploading}
+                    style={{
+                      position: 'absolute',
+                      bottom: '-5px',
+                      right: '-5px',
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '11px',
+                      backgroundColor: theme.palette.primary.main,
+                      color: 'white',
+                      border: `3px solid ${theme.palette.background.paper}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: avatarUploading ? 'wait' : 'pointer',
+                      zIndex: 2,
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                    }}
+                    title="Change Photo"
+                  >
+                    <Camera size={16} />
+                  </button>
+               </div>
+               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.25rem' }}>{profile?.full_name || user?.full_name}</h2>
+               <p style={{ color: theme.palette.text.secondary, fontSize: '0.875rem' }}>
+                  {user?.role === 'student' ? `Student ID: ${profile?.student_id || 'N/A'}` : `${capitalize(user?.role || '')} Account`}
+               </p>
+            </div>
+          </section>
+
+          {/* Personal Information */}
+          <section style={cardStyle(theme, isDark, isMobile)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <div style={iconBox(theme, theme.palette.primary.main)}><UserIcon size={20} /></div>
+              <h2 style={{ fontSize: isSmallMobile ? '1.125rem' : '1.25rem', fontWeight: 700, margin: 0 }}>Info Details</h2>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <FieldRow label="Full Name" value={profile?.full_name || user?.full_name} theme={theme} />
+              <FieldRow label="Department" value={profile?.department || 'Not set'} theme={theme} />
+              <FieldRow label="Account Type" value={capitalize(user?.role || '')} theme={theme} />
+            </div>
+          </section>
+
+          {/* Facility Access Section */}
+          <section style={cardStyle(theme, isDark, isMobile)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <div style={iconBox(theme, theme.palette.secondary.main)}><Shield size={20} /></div>
+              <h2 style={{ fontSize: isSmallMobile ? '1.125rem' : '1.25rem', fontWeight: 700, margin: 0 }}>Facility Access</h2>
             </div>
 
-            {user?.role === 'student' && (
-             <div style={{ 
-               backgroundColor: theme.palette.background.paper,
-               padding: '1.5rem',
-               borderRadius: '24px',
-               border: isDark ? `1px solid ${theme.palette.divider}` : 'none',
-               boxShadow: !isDark ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none'
-             }}>
-               <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: theme.palette.text.secondary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Active Permit</h3>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                 <div style={{ color: theme.palette.primary.main }}><Shield size={20} /></div>
-                 <div>
-                   <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Zone A - Standard</div>
-                   <div style={{ fontSize: '0.75rem', color: theme.palette.text.secondary }}>Expires: {profile?.permit_expiry ? new Date(profile.permit_expiry).toLocaleDateString() : 'No active permit'}</div>
-                 </div>
-               </div>
-             </div>
-            )}
-           </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+               <FieldRow 
+                label="Permit Level" 
+                value="Zone A - Standard" 
+                badge="ACTIVE"
+                theme={theme} 
+               />
+               <FieldRow 
+                label="Expiry Date" 
+                value={profile?.permit_expiry ? new Date(profile.permit_expiry).toLocaleDateString() : 'N/A'} 
+                theme={theme} 
+               />
+            </div>
+          </section>
 
-           {/* Right Column - Forms/Details */}
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-             <div style={sectionCardStyle(theme, isDark)}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Personal Information</h3>
-                 <button onClick={handleEditClick} style={editButtonStyle(theme)}>
-                   <Edit2 size={16} />
-                   Edit Details
-                 </button>
-               </div>
+          {/* Vehicle Information */}
+          <section style={cardStyle(theme, isDark, isMobile)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <div style={iconBox(theme, theme.palette.info.main)}><Car size={20} /></div>
+              <h2 style={{ fontSize: isSmallMobile ? '1.125rem' : '1.25rem', fontWeight: 700, margin: 0 }}>Vehicle Details</h2>
+            </div>
 
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
-                 <div style={fieldStyle}>
-                   <label style={labelStyle(theme)}>Full Name</label>
-                   <div style={valueStyle(theme)}>{profile?.full_name || user?.full_name}</div>
-                 </div>
-                 <div style={fieldStyle}>
-                   <label style={labelStyle(theme)}>Department</label>
-                   <div style={valueStyle(theme)}>{profile?.department || 'Not set'}</div>
-                 </div>
-                  <div style={fieldStyle}>
-                   <label style={labelStyle(theme)}>{user?.role === 'student' ? 'Student ID' : 'User ID'}</label>
-                   <div style={{ ...valueStyle(theme), fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                       {user?.role === 'student' ? (profile?.student_id || 'N/A') : user?.id}
-                   </div>
-                 </div>
-               </div>
-             </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {vehicle?.vehicle_number ? (
+                <>
+                  <FieldRow label="Plate Number" value={vehicle.vehicle_number} theme={theme} />
+                  <FieldRow label="Make & Model" value={vehicle.vehicle_make_model || 'N/A'} theme={theme} />
+                </>
+              ) : (
+                <p style={{ fontSize: '0.875rem', color: theme.palette.text.secondary, textAlign: 'center', padding: '1rem' }}>
+                  No vehicle registered.
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
 
-             {user?.role === 'student' && (
-             <div style={sectionCardStyle(theme, isDark)}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Vehicle Details</h3>
-                 {/* Vehicle management is done on Vehicles page */}
-               </div>
-
-               {vehicle?.vehicle_number ? (
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                   <div style={fieldStyle}>
-                     <label style={labelStyle(theme)}>Primary Vehicle</label>
-                     <div style={{ ...valueStyle(theme), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                       <Car size={18} color={theme.palette.primary.main} />
-                       {vehicle.vehicle_number}
-                     </div>
-                   </div>
-                   <div style={fieldStyle}>
-                     <label style={labelStyle(theme)}>Type</label>
-                     <div style={valueStyle(theme)}>{vehicle.vehicle_type}</div>
-                   </div>
-                   <div style={fieldStyle}>
-                     <label style={labelStyle(theme)}>Make & Model</label>
-                     <div style={valueStyle(theme)}>{vehicle.vehicle_make_model || 'N/A'}</div>
-                   </div>
-                   <div style={fieldStyle}>
-                     <label style={labelStyle(theme)}>Color</label>
-                     <div style={valueStyle(theme)}>{vehicle.vehicle_color || 'N/A'}</div>
-                   </div>
-                 </div>
-               ) : (
-                 <div style={{ color: theme.palette.text.secondary, textAlign: 'center', padding: '1rem' }}>
-                   No vehicle registered. Go to Vehicles page to add one.
-                 </div>
-               )}
-             </div>
-             )}
-           </div>
-         </div>
-       </div>
-
-      {/* Edit Profile Modal */}
+      {/* Edit Modal */}
       {isEditOpen && (
         <div style={{
-          position: 'fixed',
-          top: 0, 
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: isTinyMobile ? '0' : '1rem'
         }}>
           <div style={{
             backgroundColor: theme.palette.background.paper,
-            borderRadius: '24px',
-            width: '100%',
-            maxWidth: '500px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            overflow: 'hidden'
+            borderRadius: isTinyMobile ? '0' : '28px',
+            width: '100%', maxWidth: '480px', height: isTinyMobile ? '100%' : 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflowX: 'hidden', overflowY: 'auto'
           }}>
             <div style={{ 
-              padding: '1.5rem', 
-              borderBottom: `1px solid ${theme.palette.divider}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              padding: '1.5rem', borderBottom: `1px solid ${theme.palette.divider}`,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Edit Profile</h2>
-              <button 
-                onClick={() => setIsEditOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.palette.text.secondary }}
-              >
-                <X size={20} />
-              </button>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Edit Info</h2>
+              <button onClick={() => setIsEditOpen(false)} style={{ background: 'none', border: 'none', color: theme.palette.text.secondary }}><X size={24} /></button>
             </div>
             
-            <div style={{ padding: '2rem' }}>
-              <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ padding: isSmallMobile ? '1.5rem' : '2.5rem' }}>
+              <div style={fieldStyle}>
                 <label style={labelStyle(theme)}>Full Name</label>
                 <input 
                   type="text" 
                   value={editForm.full_name} 
-                  onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
+                  onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} 
                   style={inputStyle(theme)}
                 />
               </div>
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ ...fieldStyle, marginTop: '1.5rem' }}>
                 <label style={labelStyle(theme)}>Department</label>
                 <input 
                   type="text" 
                   value={editForm.department} 
-                  onChange={(e) => setEditForm({...editForm, department: e.target.value})}
+                  onChange={(e) => setEditForm({...editForm, department: e.target.value})} 
                   style={inputStyle(theme)}
                 />
               </div>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '2rem' }}>
-                 <button 
-                  onClick={() => setIsEditOpen(false)}
-                  style={{
-                    flex: 1,
-                    padding: '0.875rem',
-                    borderRadius: '12px',
-                    border: `1px solid ${theme.palette.divider}`,
-                    backgroundColor: 'transparent',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    color: theme.palette.text.primary
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleSaveProfile}
-                  disabled={saving}
-                  style={{
-                    flex: 1,
-                    padding: '0.875rem',
-                    borderRadius: '12px',
-                    border: 'none',
-                    backgroundColor: theme.palette.primary.main,
-                    color: 'white',
-                    fontWeight: 600,
-                    cursor: saving ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem'
-                  }}
-                >
-                  {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
-                  Save Changes
-                </button>
+              <div style={{ display: 'flex', flexDirection: isSmallMobile ? 'column' : 'row', gap: '0.75rem', marginTop: '2.5rem' }}>
+                 <button onClick={() => setIsEditOpen(false)} style={modalButtonStyle(theme, false)}>Cancel</button>
+                 <button onClick={handleSaveProfile} disabled={saving} style={modalButtonStyle(theme, true)}>
+                   {saving ? <Loader2 className="spin" size={20} /> : <Save size={20} />} Save
+                 </button>
               </div>
             </div>
           </div>
@@ -376,7 +370,6 @@ const ProfilePage: React.FC = () => {
       )}
 
       <style>{`
-        .hover-lift:hover { transform: translateY(-2px); }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
@@ -384,38 +377,71 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-const sectionCardStyle = (theme: any, isDark: boolean) => ({
+// --- Subcomponents ---
+
+const FieldRow = ({ label, value, badge, theme }: any) => (
+  <div style={fieldStyle}>
+    <label style={labelStyle(theme)}>{label}</label>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+      <div style={valueStyle(theme)}>{value}</div>
+      {badge && (
+        <span style={{ 
+          fontSize: '0.625rem', 
+          fontWeight: 800, 
+          color: theme.palette.success.main, 
+          backgroundColor: theme.palette.success.main + '15', 
+          padding: '4px 8px', 
+          borderRadius: '8px',
+          letterSpacing: '0.05em'
+        }}>{badge}</span>
+      )}
+    </div>
+  </div>
+);
+
+// --- Styles (Identical to SettingsPage for consistency) ---
+
+const sectionCardStyle = (theme: any, isDark: boolean, isMobile: boolean) => ({
   backgroundColor: theme.palette.background.paper,
-  padding: '2.5rem',
+  padding: isMobile ? '1.5rem' : '2.5rem',
   borderRadius: '32px',
   border: isDark ? `1px solid ${theme.palette.divider}` : 'none',
   boxShadow: !isDark ? '0 10px 15px -3px rgba(0,0,0,0.05)' : 'none'
 });
 
+const cardStyle = sectionCardStyle;
+
+const iconBox = (_theme: any, color: string) => ({
+  backgroundColor: color + '15',
+  color: color,
+  padding: '0.625rem',
+  borderRadius: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+});
+
 const fieldStyle = {
   display: 'flex',
   flexDirection: 'column' as any,
-  gap: '0.5rem'
+  gap: '0.375rem'
 };
 
 const labelStyle = (theme: any) => ({
-  display: 'block',
-  fontSize: '0.8125rem',
-  fontWeight: 600,
+  fontSize: '0.75rem',
+  fontWeight: 700,
   color: theme.palette.text.secondary,
   textTransform: 'uppercase' as any,
-  letterSpacing: '0.05em',
-  marginBottom: '0.5rem'
+  letterSpacing: '0.05em'
 });
 
 const valueStyle = (theme: any) => ({
   fontSize: '1rem',
-  fontWeight: 500,
+  fontWeight: 600,
   color: theme.palette.text.primary,
-  padding: '0.75rem 1rem',
-  backgroundColor: theme.palette.background.default,
-  borderRadius: '12px',
-  border: `1px solid ${theme.palette.divider}`
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
 });
 
 const inputStyle = (theme: any) => ({
@@ -425,25 +451,17 @@ const inputStyle = (theme: any) => ({
   border: `1.5px solid ${theme.palette.divider}`,
   backgroundColor: theme.palette.background.default,
   color: theme.palette.text.primary,
-  fontSize: '1rem',
+  fontSize: '0.9375rem',
   outline: 'none'
 });
 
-const editButtonStyle = (theme: any) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  backgroundColor: theme.palette.primary.main + '10',
-  color: theme.palette.primary.main,
-  border: 'none',
-  padding: '0.625rem 1rem',
-  borderRadius: '12px',
-  fontWeight: 600,
-  fontSize: '0.875rem',
-  cursor: 'pointer',
-  transition: 'all 0.2s'
+const modalButtonStyle = (theme: any, primary: boolean) => ({
+  flex: 1, padding: '1rem', borderRadius: '16px', border: primary ? 'none' : `1px solid ${theme.palette.divider}`,
+  backgroundColor: primary ? theme.palette.primary.main : 'transparent',
+  color: primary ? 'white' : theme.palette.text.primary,
+  fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.875rem'
 });
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 
 export default ProfilePage;

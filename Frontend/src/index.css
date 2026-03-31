@@ -99,6 +99,32 @@ input:focus, select:focus {
   margin-top: 0.25rem;
 }
 
+/* Responsive utilities */
+@media (max-width: 340px) {
+  .mobile-optimized {
+    font-size: 0.875rem !important;
+    padding: 0.5rem !important;
+  }
+  
+  .mobile-stack {
+    flex-direction: column !important;
+    text-align: center !important;
+  }
+  
+  .mobile-compact {
+    margin-bottom: 0.5rem !important;
+    padding: 1rem !important;
+  }
+}
+
+/* Full screen optimizations */
+@media (min-width: 1536px) {
+  .full-screen-optimized {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
 .loading {
   opacity: 0.7;
   pointer-events: none;

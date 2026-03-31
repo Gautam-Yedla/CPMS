@@ -1,4 +1,6 @@
-export var authEventCategory = 'AUTH';
+import { IUserState } from './authReducer';
+
+export const authEventCategory = 'AUTH';
 
 export const REQUEST_PENDING  = 'REQUEST_PENDING';
 export const REQUEST_RESOLVED = 'REQUEST_RESOLVED';
@@ -10,7 +12,7 @@ export const sessionLogin = () => ({
   type: `${authEventCategory}/${REQUEST_PENDING}`,
 });
 
-export const sessionLoginSuccess = (user: any) => ({
+export const sessionLoginSuccess = (user: IUserState) => ({
   type: `${authEventCategory}/${REQUEST_RESOLVED}`,
   data: user,
 });
@@ -24,7 +26,7 @@ export const sessionLogout = () => ({
   type: `${authEventCategory}/LOG_OUT`,
 });
 
-export const receiveUserData = (user: any) => ({
+export const receiveUserData = (user: IUserState) => ({
   type: `${authEventCategory}/RECEIVE_USER_DATA`,
   data: user,
 });

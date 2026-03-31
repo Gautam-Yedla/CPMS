@@ -28,12 +28,12 @@ if current_dir not in sys.path:
 # Load environment variables from .env file
 load_dotenv()
 
-# Import Gemini detector
+# Import Vision AI detector
 try:
-    from detection.gemini_detector import GeminiDetector
+    from detection.vision_ai_detector import VisionAIDetector
 except ImportError:
-    GeminiDetector = None
-    print("[INIT] Failed to import GeminiDetector (is google-genai installed?)")
+    VisionAIDetector = None
+    print("[INIT] Failed to import VisionAIDetector (is google-genai installed?)")
 
 app = Flask(__name__)
 CORS(app)
@@ -53,19 +53,19 @@ try:
 except Exception as e:
     logging.error(f"[ERROR] Failed to load config: {e}")
     config = {
-        'gemini': {'enabled': True, 'model_name': 'gemini-1.5-flash'},
+        'vision_ai': {'enabled': True, 'model_name': 'gemini-1.5-flash'},
         'model': {'path': 'models/best.pt'}
     }
 
 # ──────────────── MODEL INITIALIZATION ────────────────
 
-gemini_model = None
+vision_ai_model = None
 try:
-    if config.get('gemini', {}).get('enabled', False) and GeminiDetector:
-        gemini_model = GeminiDetector(config)
-        print("[INIT] Gemini model initialized successfully.")
+    if config.get('vision_ai', {}).get('enabled', False) and VisionAIDetector:
+        vision_ai_model = VisionAIDetector(config)
+        print("[INIT] Vision AI model initialized successfully.")
 except Exception as e:
-    print(f"[INIT] Failed to initialize Gemini model: {e}")
+    print(f"[INIT] Failed to initialize Vision AI model: {e}")
 
 vehicle_model = None
 vehicle_model_path = os.path.join(current_dir, '../', config.get('model', {}).get('path', 'models/best.pt'))
@@ -108,8 +108,8 @@ def _count_classes(detections: Any) -> Dict[str, int]:
             counts[cls] = counts.get(cls, 0) + 1
     return counts
 
-def run_gemini_detection(frame: Any, detection_type: str) -> Dict[str, Any]:
-    """Run Gemini detection and structure results."""
+def run_vision_ai_detection(frame: Any, detection_type: str) -> Dict[str, Any]:
+    """Run Vision AI detection and structure results."""
     start_time = time.time()
     vehicles = []
     slots = []
@@ -118,13 +118,13 @@ def run_gemini_detection(frame: Any, detection_type: str) -> Dict[str, Any]:
     is_parking_mode = detection_type in ['all', 'parking']
     is_vehicle_mode = detection_type in ['all', 'vehicles']
 
-    if not gemini_model:
+    if not vision_ai_model:
         return {"vehicles": [], "parking": None, "latency_ms": 0}
 
     try:
-        gemini_results = gemini_model.detect(frame)
+        vision_ai_results = vision_ai_model.detect(frame)
     except Exception as e:
-        logging.error(f"[GEMINI] Detection failed: {e}")
+        logging.error(f"[VISION_AI] Detection failed: {e}")
         return {"vehicles": [], "parking": None, "latency_ms": 0, "error": str(e)}
 
     slot_idx = 1
@@ -132,7 +132,7 @@ def run_gemini_detection(frame: Any, detection_type: str) -> Dict[str, Any]:
     space_types = {'car_space', 'motorcycle_space', 'large_vehicle_space', 'empty_slot'}
     coco_class_map = {'car': 2, 'motorcycle': 3, 'bicycle': 1, 'bus': 5, 'truck': 7, 'occupied_slot': 2}
 
-    for det in gemini_results:
+    for det in vision_ai_results:
         dtype = str(det.get('type', ''))
         legacy_type = str(det.get('legacy_type', dtype))
         box = det.get('boundingBox', {})
@@ -223,7 +223,7 @@ def index():
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({"status": "healthy", "models": {"gemini": gemini_model is not None, "pk_best": pk_best_model is not None, "best": best_model is not None}})
+    return jsonify({"status": "healthy", "models": {"vision_ai": vision_ai_model is not None, "pk_best": pk_best_model is not None, "best": best_model is not None}})
 
 @app.route('/process_frame', methods=['POST'])
 def process_frame():
@@ -241,25 +241,25 @@ def process_frame():
     detection_type = str(data.get('detection_type', 'all'))
     logging.info(f"[PROCESS] New frame — type='{detection_type}', shape={frame.shape}")
 
-    gemini_res = None
+    vision_ai_res = None
     pk_res = None
     b_res = None
 
     with ThreadPoolExecutor(max_workers=3) as executor:
-        f_gemini = executor.submit(run_gemini_detection, frame, detection_type)
+        f_vision_ai = executor.submit(run_vision_ai_detection, frame, detection_type)
         pk_conf = float(config.get('parking_model', {}).get('conf_threshold', 0.25))
         f_pk = executor.submit(run_local_yolo_model, pk_best_model, "PK-best", frame, pk_conf)
         f_b = executor.submit(run_local_yolo_model, best_model, "Best", frame, pk_conf)
 
         try:
-            gemini_res = f_gemini.result(timeout=60)
+            vision_ai_res = f_vision_ai.result(timeout=60)
             pk_res = f_pk.result(timeout=30)
             b_res = f_b.result(timeout=30)
         except Exception as e:
             logging.error(f"[ERROR] Parallel execution failed: {e}")
 
     # Final safe extraction
-    g_res = gemini_res if gemini_res else {"vehicles": [], "parking": None, "latency_ms": 0.0}
+    g_res = vision_ai_res if vision_ai_res else {"vehicles": [], "parking": None, "latency_ms": 0.0}
     p_res = pk_res if pk_res else {"model": "PK-best", "detections": [], "count": 0, "latency_ms": 0.0}
     best_res = b_res if b_res else {"model": "Best", "detections": [], "count": 0, "latency_ms": 0.0}
     comp_data = compare_local_models(p_res, best_res)

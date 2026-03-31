@@ -15,11 +15,19 @@ import {
   useTheme,
   Fade,
   IconButton,
-  InputAdornment
+  FormControl,
+  InputLabel,
+  Select,
+  Stack,
+  useMediaQuery,
+  CircularProgress,
+  Checkbox,
+  Divider,
+  Pagination
 } from '@mui/material';
-import { Eye, Edit2, Search, User, Briefcase, Mail, Calendar, ShieldCheck } from 'lucide-react';
+import { Edit2, Search, ShieldCheck, X, RefreshCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { api } from '@services/api';
+import { api } from '@utils/services/api';
 import ErrorBoundary from '@shared/components/ErrorBoundary';
 
 interface Role {
@@ -50,25 +58,48 @@ const UserManagementPage: React.FC = () => {
 
 const UserManagementPageContent: React.FC = () => {
   const theme = useTheme();
+  
+  // UX Breakpoints (Standardized)
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isExtraSmall = useMediaQuery('(max-width:400px)');
+  const isTinyMobile = useMediaQuery('(max-width:340px)');
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkRoleAnchor, setBulkRoleAnchor] = useState<null | HTMLElement>(null);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const itemsPerPage = isMobile ? 6 : 9;
   
-  // Modals state
+  // Modals & Filters
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ role: '', department: '' });
   const [viewMode, setViewMode] = useState<'all' | 'pending'>('all');
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [deptFilter] = useState('All');
+
+  // Standard Semantic Colors
+  const COLORS = {
+      primary: theme.palette.primary.main,
+      active: '#10b981', // Emerald
+      pending: '#f59e0b', // Amber
+      suspended: '#64748b' // Slate
+  };
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const data = await api.fetchUsers();
-      setUsers(data);
+      if (Array.isArray(data)) setUsers(data);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
+      toast.error('Failed to load personnel records');
     } finally {
       setLoading(false);
     }
@@ -79,18 +110,19 @@ const UserManagementPageContent: React.FC = () => {
   }, []);
 
   const filteredUsers = useMemo(() => {
-    return users.filter(u => 
-      u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.role?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [users, searchTerm]);
+    return users.filter(u => {
+      const matchesSearch = 
+        u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const role = (u.role || u.roles?.[0]?.roles?.name || '').toLowerCase();
+      const matchesRole = roleFilter === 'All' || role === roleFilter.toLowerCase();
+      const matchesDept = deptFilter === 'All' || u.department === deptFilter;
+      const matchesMode = viewMode === 'all' || (viewMode === 'pending' && u.is_approved === false);
 
-  const handleView = (user: User) => {
-    setSelectedUser(user);
-    setIsViewOpen(true);
-  };
+      return matchesSearch && matchesRole && matchesDept && matchesMode;
+    });
+  }, [users, searchTerm, roleFilter, deptFilter, viewMode]);
 
   const handleEdit = (user: User) => {
     setSelectedUser(user);
@@ -105,366 +137,304 @@ const UserManagementPageContent: React.FC = () => {
     if (!selectedUser) return;
     try {
       await api.updateUser(selectedUser.id, editForm);
-      toast.success('System Personnel updated successfully');
+      toast.success('Access level updated');
       setIsEditOpen(false);
       fetchUsers();
     } catch (error) {
-      toast.error('Failed to update personnel record');
+      toast.error('Refine user failed');
     }
   };
 
   const handleApprove = async (userId: string) => {
     try {
       await api.approveUser(userId);
-      toast.success('User account approved successfully');
+      toast.success('Access granted');
       fetchUsers();
     } catch (error) {
-      toast.error('Failed to approve account');
+      toast.error('Activation failed');
+    }
+  };
+
+  const handleApproveAll = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      await Promise.all(selectedIds.map(id => api.approveUser(id)));
+      toast.success(`Access granted to ${selectedIds.length} personnel`);
+      setSelectedIds([]);
+      setSelectionMode(false);
+      fetchUsers();
+    } catch (error) {
+      toast.error('Batch activation failed');
+    }
+  };
+
+  const handleBatchRoleChange = async (newRole: string) => {
+    try {
+      await Promise.all(selectedIds.map(id => api.updateUser(id, { role: newRole })));
+      toast.success(`Designations updated for ${selectedIds.length} personnel`);
+      setBulkRoleAnchor(null);
+      setSelectedIds([]);
+      setSelectionMode(false);
+      fetchUsers();
+    } catch (error) {
+      toast.error('Batch update failed');
     }
   };
 
   return (
-    <Box p={2} minHeight="calc(100vh - 100px)" display="flex" flexDirection="column">
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <div>
-          <Typography fontWeight="700" sx={{ fontSize: '1.875rem', color: theme.palette.text.primary, mb: 0.5 }}>
-            Personnel Management
-          </Typography>
-          <Typography variant="body1" color="text.secondary">Oversee and modify system user accounts, departments, and roles.</Typography>
-        </div>
-        <Box display="flex" gap={2} alignItems="center">
-          <Box display="flex" sx={{ background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', p: 0.5, borderRadius: '12px' }}>
-            <Button 
-                onClick={() => setViewMode('all')} 
-                sx={{ 
-                    borderRadius: '10px', 
-                    px: 3, 
-                    fontWeight: 600,
-                    background: viewMode === 'all' ? theme.palette.background.paper : 'transparent',
-                    boxShadow: viewMode === 'all' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                    color: viewMode === 'all' ? theme.palette.primary.main : theme.palette.text.secondary
-                }}
-            >
-                All Personnel
-            </Button>
-            <Button 
-                onClick={() => setViewMode('pending')} 
-                sx={{ 
-                    borderRadius: '10px', 
-                    px: 3, 
-                    fontWeight: 600,
-                    background: viewMode === 'pending' ? theme.palette.background.paper : 'transparent',
-                    boxShadow: viewMode === 'pending' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                    color: viewMode === 'pending' ? theme.palette.secondary.main : theme.palette.text.secondary
-                }}
-            >
-                Approval Requests
-                {users.filter(u => u.is_approved === false).length > 0 && (
-                    <Box sx={{ ml: 1, width: 20, height: 20, borderRadius: '50%', background: theme.palette.error.main, color: '#fff', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {users.filter(u => u.is_approved === false).length}
-                    </Box>
-                )}
-            </Button>
+    <Box sx={{ p: isTinyMobile ? 1.5 : isMobile ? 2 : 4, minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', gap: 3, position: 'relative' }}>
+      
+      {/* Selection Mode Overlay */}
+      <Fade in={selectionMode}>
+        <Box 
+          sx={{ 
+            position: 'absolute', top: 0, left: 0, right: 0, 
+            height: isMobile ? '60px' : '84px',
+            bgcolor: COLORS.primary, color: 'white',
+            zIndex: 1100, display: selectionMode ? 'flex' : 'none',
+            alignItems: 'center', px: isMobile ? 2 : 5, justifyContent: 'space-between',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            borderRadius: '0 0 16px 16px'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <ShieldCheck size={isMobile ? 24 : 32} />
+            <Typography variant={isMobile ? "body2" : "h6"} fontWeight="800">{selectedIds.length} Personnel Selected</Typography>
           </Box>
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              px: 2, 
-              py: 0.75, 
-              borderRadius: '12px',
-              border: `1px solid ${theme.palette.divider}`,
-              background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
-              backdropFilter: 'blur(10px)',
-              width: '350px'
-            }}
+          <Button 
+            variant="outlined" color="inherit" size="small"
+            onClick={() => setSelectedIds(selectedIds.length === filteredUsers.length ? [] : filteredUsers.map(u => u.id))} 
+            sx={{ fontWeight: 800, borderRadius: '8px', px: 2, borderColor: 'rgba(255,255,255,0.4)', textTransform: 'none' }}
           >
-            <TextField 
-              variant="standard" 
-              placeholder="Filter by name, email..." 
-              fullWidth 
-              InputProps={{ 
-                disableUnderline: true, 
-                style: { fontSize: '0.95rem' },
-                startAdornment: <InputAdornment position="start"><Search size={18} color={theme.palette.text.secondary} /></InputAdornment>
-              }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </Paper>
+            {selectedIds.length === filteredUsers.length ? 'Clear' : 'Select All'}
+          </Button>
+        </Box>
+      </Fade>
+
+      {/* Modern Header Section */}
+      <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: 3 }}>
+        <Box>
+          <Typography fontWeight="900" sx={{ fontSize: isExtraSmall ? '1.75rem' : isMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+            User Management
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, opacity: 0.9 }}>
+            Management of institutional personnel records and system access.
+          </Typography>
+        </Box>
+        
+        <Box sx={{ display: 'flex', gap: 2, width: isMobile ? '100%' : 'auto' }}>
+           <Paper elevation={0} sx={{ p: isMobile ? 1.5 : 2.5, borderRadius: '16px', border: `1px solid ${theme.palette.divider}`, textAlign: 'center', flex: 1, minWidth: '120px' }}>
+              <Typography variant="h5" fontWeight="800" color="primary">{users.length}</Typography>
+              <Typography variant="caption" fontWeight="800" color="text.secondary">RECORDED</Typography>
+           </Paper>
+           <Paper elevation={0} sx={{ p: isMobile ? 1.5 : 2.5, borderRadius: '16px', border: `1px solid ${theme.palette.divider}`, textAlign: 'center', flex: 1, minWidth: '120px' }}>
+              <Typography variant="h5" fontWeight="800" sx={{ color: COLORS.pending }}>{users.filter(u=>!u.is_approved).length}</Typography>
+              <Typography variant="caption" fontWeight="800" color="text.secondary">PENDING</Typography>
+           </Paper>
         </Box>
       </Box>
 
-      {/* Masonry Grid of User Cards */}
-      {loading ? (
-         <Typography color="text.secondary" textAlign="center" py={4}>Compiling personnel records...</Typography>
-      ) : filteredUsers.length === 0 ? (
-         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={8} sx={{ opacity: 0.5 }}>
-            <User size={64} style={{ marginBottom: '16px' }} />
-            <Typography variant="h6">No personnel found</Typography>
-         </Box>
-      ) : (
-        <Box 
-          sx={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-            gap: 3 
-          }}
-        >
-          {filteredUsers
-            .filter(u => viewMode === 'all' || (viewMode === 'pending' && u.is_approved === false))
-            .map((user) => {
-            const displayRole = user.role || (user.roles && user.roles.length > 0 ? user.roles[0].roles?.name : 'student');
-            const isAdmin = displayRole?.toLowerCase() === 'admin';
+      {/* Filter Bar (Standardized Architecture) */}
+      <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', border: `1px solid ${theme.palette.divider}`, display: 'flex', flexDirection: isExtraSmall ? 'column' : 'row', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, borderRight: isExtraSmall ? 'none' : `1px solid ${theme.palette.divider}`, pr: 2, minWidth: isExtraSmall ? '100%' : '300px' }}>
+            <Search size={18} color={theme.palette.text.secondary} />
+            <TextField 
+                variant="standard" placeholder="Search by name or system email..." fullWidth 
+                InputProps={{ disableUnderline: true, style: { fontWeight: 600 } }}
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1.5, width: isExtraSmall ? '100%' : '450px' }}>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Status</InputLabel>
+                <Select value={viewMode} label="Status" onChange={(e) => setViewMode(e.target.value as any)} sx={{ borderRadius: '12px' }}>
+                   <MenuItem value="all">All Personnel</MenuItem>
+                   <MenuItem value="pending">Review Required</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Designation</InputLabel>
+                <Select value={roleFilter} label="Designation" onChange={(e) => setRoleFilter(e.target.value)} sx={{ borderRadius: '12px' }}>
+                   {['All', 'Admin', 'Security', 'Faculty', 'Student'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                </Select>
+              </FormControl>
+          </Box>
+          <Button 
+            variant={selectionMode ? "contained" : "outlined"}
+            onClick={() => { setSelectionMode(!selectionMode); if(selectionMode) setSelectedIds([]); }}
+            sx={{ borderRadius: '12px', height: '40px', fontWeight: 800, textTransform: 'none', px: 3, flexShrink: 0 }}
+          >
+            {selectionMode ? 'Cancel Selection' : 'Batch Actions'}
+          </Button>
+      </Paper>
 
-            return (
-              <Fade in={true} key={user.id}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: '20px',
-                    border: `1px solid ${theme.palette.divider}`,
-                    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
-                    backdropFilter: 'blur(10px)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                      boxShadow: `0 12px 24px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)'}`,
-                      borderColor: isAdmin ? theme.palette.secondary.main : theme.palette.primary.main
-                    }
-                  }}
-                >
-                  {/* Decorative Header Bar */}
-                  <Box 
-                    sx={{ 
-                      position: 'absolute', 
-                      top: 0, 
-                      left: 0, 
-                      right: 0, 
-                      height: '4px', 
-                      background: isAdmin 
-                        ? `linear-gradient(90deg, ${theme.palette.secondary.main}, ${theme.palette.warning.main})` 
-                        : `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.info.main})` 
-                    }} 
-                  />
-
-                  {/* Header Row: Avatar + Name */}
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Avatar 
-                      src={user.avatar_url || undefined} 
+      {/* High-Density Personnel List */}
+      <Box sx={{ flex: 1 }}>
+        {loading ? (
+             <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}><CircularProgress thickness={4} size={50} /></Box>
+        ) : filteredUsers.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 15, opacity: 0.4 }}>
+                <Typography variant="h6" fontWeight="700">No matching personnel records found</Typography>
+            </Box>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: isMobile ? 2 : 3 }}>
+            {filteredUsers
+              .slice((page - 1) * itemsPerPage, page * itemsPerPage)
+              .map((user) => {
+                const isSelected = selectedIds.includes(user.id);
+                const displayRole = user.role || (user.roles?.[0]?.roles?.name) || 'Student';
+                const isPending = user.is_approved === false;
+                
+                return (
+                <Fade in={true} key={user.id}>
+                    <Paper 
+                      elevation={0}
                       sx={{ 
-                        width: 56, 
-                        height: 56,
-                        border: `2px solid ${isAdmin ? theme.palette.secondary.main : theme.palette.primary.main}`,
-                        boxShadow: `0 4px 12px ${isAdmin ? theme.palette.secondary.main : theme.palette.primary.main}40`
+                        p: isMobile ? 2.5 : 3.5, borderRadius: '16px', 
+                        border: `1px solid ${isSelected ? COLORS.primary : theme.palette.divider}`,
+                        bgcolor: isSelected ? `${COLORS.primary}05` : theme.palette.background.paper,
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative',
+                        '&:hover': { borderColor: COLORS.primary, boxShadow: theme.shadows[2] }
                       }}
-                    />
-                    <Box flex={1}>
-                      <Typography variant="h6" fontWeight="800" sx={{ lineHeight: 1.2, mb: 0.5 }}>
-                        {user.full_name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Mail size={14} /> {user.email}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* Badges Row */}
-                  <Box display="flex" gap={1} flexWrap="wrap">
-                    <Chip 
-                      icon={<ShieldCheck size={14} style={{ marginLeft: '6px' }} />} 
-                      label={(displayRole || 'student').toLowerCase()} 
-                      size="small" 
-                      sx={{ 
-                        height: 24, 
-                        fontWeight: 700, 
-                        fontSize: '0.7rem', 
-                        textTransform: 'uppercase',
-                        background: isAdmin ? `${theme.palette.secondary.main}20` : `${theme.palette.primary.main}20`,
-                        color: isAdmin ? theme.palette.secondary.main : theme.palette.primary.main,
-                        border: `1px solid ${isAdmin ? theme.palette.secondary.main : theme.palette.primary.main}40`
-                      }} 
-                    />
-                    {user.department && (
-                      <Chip 
-                        icon={<Briefcase size={14} style={{ marginLeft: '6px' }} />} 
-                        label={user.department} 
-                        size="small" 
-                        sx={{ 
-                          height: 24, 
-                          fontWeight: 600, 
-                          fontSize: '0.75rem',
-                          background: `${theme.palette.text.secondary}1A`,
-                          color: theme.palette.text.secondary,
-                        }} 
-                      />
-                    )}
-                  </Box>
-
-                  {/* Actions Row (Bottom) */}
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mt="auto" pt={1}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 500 }}>
-                      <Calendar size={12} /> Joined {new Date(user.created_at).toLocaleDateString()}
-                    </Typography>
-                    <Box display="flex" gap={1}>
-                      {user.is_approved === false && (
-                          <Button 
-                            variant="contained" 
-                            size="small" 
-                            color="success" 
-                            onClick={() => handleApprove(user.id)}
-                            sx={{ borderRadius: '8px', fontWeight: 700, fontSize: '0.75rem' }}
-                          >
-                            Approve
-                          </Button>
+                    >
+                      {selectionMode && (
+                         <Checkbox checked={isSelected} sx={{ position: 'absolute', top: 12, right: 12 }} onChange={() => setSelectedIds(p=>p.includes(user.id)?p.filter(i=>i!==user.id):[...p,user.id])} />
                       )}
-                      <IconButton size="small" onClick={() => handleView(user)} sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.primary.main, background: `${theme.palette.primary.main}1A` }}}>
-                        <Eye size={18} />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleEdit(user)} sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.info.main, background: `${theme.palette.info.main}1A` }}}>
-                        <Edit2 size={18} />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </Paper>
-              </Fade>
-            );
-          })}
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar src={user.avatar_url || ''} sx={{ width: 56, height: 56, border: `1px solid ${theme.palette.divider}`, fontWeight: 800 }}>{user.full_name?.[0]}</Avatar>
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle1" fontWeight="800" sx={{ lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.full_name}</Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</Typography>
+                            </Box>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            <Chip label={displayRole.toUpperCase()} size="small" sx={{ fontWeight: 900, fontSize: '0.6rem', bgcolor: `${COLORS.primary}12`, color: COLORS.primary }} />
+                            {isPending && <Chip label="REVIEW" size="small" sx={{ fontWeight: 900, fontSize: '0.6rem', bgcolor: `${COLORS.pending}12`, color: COLORS.pending }} />}
+                        </Box>
+
+                        <Divider sx={{ opacity: 0.5 }} />
+
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                             <Box>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '0.65rem' }}>Department</Typography>
+                                <Typography variant="body2" fontWeight="700" sx={{ fontSize: '0.85rem' }}>{user.department || '--'}</Typography>
+                             </Box>
+                             <Box sx={{ textAlign: 'right' }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '0.65rem' }}>Enrolled</Typography>
+                                <Typography variant="body2" fontWeight="700" sx={{ fontSize: '0.85rem' }}>{new Date(user.created_at).toLocaleDateString()}</Typography>
+                             </Box>
+                        </Box>
+
+                        {!selectionMode && (
+                          <Stack direction="row" spacing={1.5} sx={{ mt: 1 }}>
+                             {isPending ? (
+                                 <Button fullWidth variant="contained" color="success" size="small" onClick={()=>handleApprove(user.id)} sx={{ borderRadius: '10px', fontWeight: 800, textTransform: 'none' }}>Grant Access</Button>
+                             ) : (
+                                 <Button fullWidth variant="outlined" size="small" onClick={()=>{ setSelectedUser(user); setIsViewOpen(true); }} sx={{ borderRadius: '10px', fontWeight: 800, textTransform: 'none', border: `1.5px solid ${theme.palette.divider}` }}>View Details</Button>
+                             )}
+                             <IconButton onClick={()=>handleEdit(user)} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: '10px', p: 1 }}>
+                                <Edit2 size={16} />
+                             </IconButton>
+                          </Stack>
+                        )}
+                      </Box>
+                    </Paper>
+                </Fade>
+                );
+              })
+            }
+          </Box>
+        )}
+      </Box>
+
+      {/* Pagination (Modernized) */}
+      {!loading && filteredUsers.length > itemsPerPage && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <Pagination count={Math.ceil(filteredUsers.length / itemsPerPage)} page={page} onChange={(_, v) => setPage(v)} color="primary" sx={{ '& .MuiPaginationItem-root': { fontWeight: 800, borderRadius: '8px' } }} />
         </Box>
       )}
 
-      {/* Premium View User Modal */}
-      <Dialog 
-        open={isViewOpen} 
-        onClose={() => setIsViewOpen(false)} 
-        maxWidth="xs" 
-        fullWidth
-        TransitionComponent={Fade}
-        PaperProps={{ 
-          sx: { 
-            borderRadius: '24px',
-            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            backgroundImage: 'none',
-            boxShadow: theme.palette.mode === 'dark' ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.1)'
-          } 
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem', p: 3, pb: 0, textAlign: 'center' }}>
-          Personnel Profile
-        </DialogTitle>
-        <DialogContent sx={{ p: 4, pt: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          {selectedUser && (
-            <>
-              <Avatar 
-                src={selectedUser.avatar_url || undefined} 
-                sx={{ 
-                  width: 96, 
-                  height: 96, 
-                  mb: 2,
-                  boxShadow: `0 8px 24px ${theme.palette.primary.main}40`,
-                  border: `4px solid ${theme.palette.background.paper}`
-                }} 
-              />
-              <Typography variant="h5" fontWeight="800" sx={{ mb: 0.5 }}>{selectedUser.full_name}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{selectedUser.email}</Typography>
+      {/* Floating Batch Control */}
+      {selectedIds.length > 0 && (
+          <Box sx={{ position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 1200, px: 2, width: isMobile ? '100%' : 'auto' }}>
+            <Paper elevation={12} sx={{ p: 1, borderRadius: '32px', bgcolor: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', gap: isMobile ? 1.5 : 4, px: 2.5 }}>
+               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ bgcolor: COLORS.primary, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>{selectedIds.length}</Box>
+                  {!isMobile && <Typography variant="body2" fontWeight="800">Personnel Selected</Typography>}
+               </Box>
+               <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
+               <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="contained" color="success" size="small" onClick={handleApproveAll} sx={{ borderRadius: '24px', fontWeight: 900, px: 2, textTransform: 'none' }}>Approve</Button>
+                  <Button variant="contained" onClick={(e)=>setBulkRoleAnchor(e.currentTarget)} sx={{ borderRadius: '24px', fontWeight: 900, px: 2, bgcolor: COLORS.primary, textTransform: 'none' }}>Designation</Button>
+                  <IconButton size="small" onClick={()=>setSelectedIds([])} sx={{ color: 'rgba(255,255,255,0.4)' }}><RefreshCcw size={16} /></IconButton>
+               </Box>
+            </Paper>
+            <Select open={Boolean(bulkRoleAnchor)} onClose={()=>setBulkRoleAnchor(null)} value="" sx={{ display: 'none' }} MenuProps={{ anchorEl: bulkRoleAnchor }}>
+               {['student', 'faculty', 'security', 'admin'].map(r => <MenuItem key={r} onClick={()=>handleBatchRoleChange(r)} sx={{ fontWeight: 700 }}>Set as {r.toUpperCase()}</MenuItem>)}
+            </Select>
+          </Box>
+      )}
 
-              <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left', background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', p: 3, borderRadius: '16px' }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ textTransform: 'uppercase' }}>Department</Typography>
-                  <Typography variant="body2" fontWeight="600">{selectedUser.department || 'Not Assigned'}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ textTransform: 'uppercase' }}>Archetype / Role</Typography>
-                  <Chip 
-                    label={selectedUser.role || (selectedUser.roles?.[0]?.roles?.name) || 'Student'} 
-                    size="small" 
-                    sx={{ height: 20, fontSize: '0.7rem', fontWeight: 800, textTransform: 'capitalize', color: theme.palette.primary.main, background: `${theme.palette.primary.main}20` }}
-                  />
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ textTransform: 'uppercase' }}>Joined Date</Typography>
-                  <Typography variant="body2" fontWeight="600">{new Date(selectedUser.created_at).toLocaleDateString()}</Typography>
-                </Box>
-              </Box>
-            </>
+      {/* Personnel Profile Dialog */}
+      <Dialog open={isViewOpen} onClose={()=>setIsViewOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '20px' } }}>
+        <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>
+           {selectedUser && (
+             <Stack alignItems="center" spacing={2}>
+               <Avatar src={selectedUser.avatar_url||''} sx={{ width: 80, height: 80, border: `3px solid ${COLORS.primary}20` }}>{selectedUser.full_name?.[0]}</Avatar>
+               <Box>
+                 <Typography variant="h6" fontWeight="900">{selectedUser.full_name}</Typography>
+                 <Typography variant="body2" color="text.secondary" fontWeight={600}>{selectedUser.email}</Typography>
+               </Box>
+             </Stack>
+           )}
+        </DialogTitle>
+        <DialogContent>
+          {selectedUser && (
+             <Stack spacing={2.5} sx={{ mt: 2 }}>
+               <Box sx={{ p: 2, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" fontWeight="800" color="text.secondary">DESIGNATION</Typography>
+                  <Chip label={(selectedUser.role||'user').toUpperCase()} size="small" sx={{ fontWeight: 800, fontSize: '0.65rem' }} />
+               </Box>
+               <Box sx={{ p: 2, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" fontWeight="800" color="text.secondary">DEPARTMENT</Typography>
+                  <Typography variant="body2" fontWeight="800">{selectedUser.department||'Unassigned'}</Typography>
+               </Box>
+               <Box sx={{ p: 2, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" fontWeight="800" color="text.secondary">ENROLLED</Typography>
+                  <Typography variant="body2" fontWeight="800">{new Date(selectedUser.created_at).toLocaleDateString()}</Typography>
+               </Box>
+             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
-          <Button onClick={() => setIsViewOpen(false)} color="inherit" sx={{ borderRadius: '12px', px: 4, fontWeight: 600, width: '100%', background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            Dismiss Overview
-          </Button>
-        </DialogActions>
+        <DialogActions sx={{ p: 3 }}><Button onClick={()=>setIsViewOpen(false)} fullWidth variant="contained" color="inherit" sx={{ borderRadius: '12px', fontWeight: 800, bgcolor: 'rgba(0,0,0,0.05)' }}>Close Profile</Button></DialogActions>
       </Dialog>
 
-      {/* Premium Edit User Modal */}
-      <Dialog 
-        open={isEditOpen} 
-        onClose={() => setIsEditOpen(false)} 
-        maxWidth="xs" 
-        fullWidth
-        TransitionComponent={Fade}
-        PaperProps={{ 
-          sx: { 
-            borderRadius: '24px',
-            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            backgroundImage: 'none',
-            boxShadow: theme.palette.mode === 'dark' ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.1)'
-          } 
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem', p: 3, pb: 2, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Box sx={{ p: 1, borderRadius: '8px', background: `${theme.palette.info.main}1A`, color: theme.palette.info.main, display: 'flex' }}>
-            <Edit2 size={20} />
-          </Box>
-          Modify Personnel Record
+      {/* Edit Access Dialog */}
+      <Dialog open={isEditOpen} onClose={()=>setIsEditOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '20px' } }}>
+        <DialogTitle sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 3 }}>
+           Update Access Level
+           <IconButton onClick={()=>setIsEditOpen(false)} size="small"><X size={20}/></IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 3, pt: 3 }}>
-          <Box display="flex" flexDirection="column" gap={3}>
-            <TextField
-              label="System Authority Role"
-              select
-              variant="filled"
-              fullWidth
-              value={editForm.role}
-              onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
-              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-            >
-              <MenuItem value="student">Student</MenuItem>
-              <MenuItem value="faculty">Faculty</MenuItem>
-              <MenuItem value="security">Security</MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
-            </TextField>
-            <TextField
-              label="Department / Faculty"
-              variant="filled"
-              fullWidth
-              value={editForm.department}
-              onChange={(e) => setEditForm(prev => ({ ...prev, department: e.target.value }))}
-              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-            />
-          </Box>
+        <DialogContent sx={{ p: 3, pt: 1 }}>
+          <Stack spacing={3}>
+            <Box>
+               <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1, mb: 1, display: 'block' }}>ASSIGN DESIGNATION</Typography>
+               <TextField select fullWidth value={editForm.role} onChange={e=>setEditForm(p=>({...p, role: e.target.value}))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', fontWeight: 700 } }}>
+                  {['student', 'faculty', 'security', 'admin'].map(r => <MenuItem key={r} value={r} sx={{ fontWeight: 700 }}>{r.toUpperCase()}</MenuItem>)}
+               </TextField>
+            </Box>
+            <Box>
+               <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1, mb: 1, display: 'block' }}>DEPARTMENT AFFILIATION</Typography>
+               <TextField fullWidth value={editForm.department} onChange={e=>setEditForm(p=>({...p, department: e.target.value}))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', fontWeight: 700 } }} />
+            </Box>
+          </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
-          <Button onClick={() => setIsEditOpen(false)} color="inherit" sx={{ borderRadius: '10px', px: 3, fontWeight: 600 }}>Cancel</Button>
-          <Button 
-            onClick={handleUpdateUser} 
-            variant="contained" 
-            color="info"
-            sx={{ 
-              borderRadius: '10px', 
-              px: 4, 
-              fontWeight: 700,
-              boxShadow: `0 8px 16px ${theme.palette.info.main}40`
-            }}
-          >
-            Commit Changes
-          </Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleUpdateUser} fullWidth variant="contained" size="large" sx={{ borderRadius: '12px', py: 1.5, fontWeight: 900, textTransform: 'none' }}>Refine Access Controls</Button>
         </DialogActions>
       </Dialog>
     </Box>

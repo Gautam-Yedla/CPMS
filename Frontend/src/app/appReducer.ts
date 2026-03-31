@@ -27,9 +27,9 @@ const appReducer = combineReducers({
 export const authEventCategory = 'AUTH';
 
 export const rootReducer = (
-  state: any,
-  action: any
-): any => {
+  state: IRootState | undefined,
+  action: { type: string; payload?: unknown }
+): IRootState => {
   if (action.type === `${authEventCategory}/LOG_OUT`) {
     state = undefined;
   }

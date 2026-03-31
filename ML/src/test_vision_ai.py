@@ -2,12 +2,12 @@ import cv2
 import yaml
 import os
 from dotenv import load_dotenv
-from detection.gemini_detector import GeminiDetector
+from detection.vision_ai_detector import VisionAIDetector
 
 # Load environment variables
 load_dotenv()
 
-def test_gemini():
+def test_vision_ai():
     # 1. Load config
     config_path = 'configs/config.yaml'
     print(f"Loading config from {config_path}...")
@@ -15,11 +15,11 @@ def test_gemini():
         config = yaml.safe_load(f)
         
     # 2. Initialize Detector
-    print("Initializing Gemini...")
-    detector = GeminiDetector(config)
+    print("Initializing Vision AI...")
+    detector = VisionAIDetector(config)
     
     if not detector.client:
-        print("Failed to initialize Gemini. Check GEMINI_API_KEY.")
+        print("Failed to initialize Vision AI detector. Check VISION_AI_API_KEY environment variable or config.")
         return
         
     # 3. Load test image
@@ -43,8 +43,8 @@ def test_gemini():
                   return
                    
     # 4. Run Inference
-    print(f"Running Gemini inference (model: {detector.model_name})...")
-    print("This may take a few seconds with chain-of-thought reasoning...\n")
+    print(f"Running Vision AI inference (model: {detector.model_name})...")
+    print("This may take a few seconds as the model processes requirements and context...\n")
     results = detector.detect(frame)
     
     # 5. Summarize Results
@@ -109,15 +109,15 @@ def test_gemini():
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
     
     # Save annotated result
-    save_path = "data/processed/gemini_test_result.jpg"
+    save_path = "data/processed/vision_ai_test_result.jpg"
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     cv2.imwrite(save_path, frame)
     print(f"\n  Annotated image saved to: {save_path}")
     
-    cv2.imshow("Gemini Test", frame)
-    print("Press any key to close the window...")
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.imshow("Vision AI Test", frame) # Disabling imshow for non-interactive test run
+    # print("Press any key to close the window...")
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    test_gemini()
+    test_vision_ai()

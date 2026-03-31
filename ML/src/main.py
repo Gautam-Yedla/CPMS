@@ -20,8 +20,8 @@ from zones.manager import ZoneManager
 from training.data_collector import DataCollector
 from training.data_logger import DataLogger
 
-# Import Gemini Hybrid Detector
-from detection.gemini_detector import GeminiDetector
+# Import Vision AI Detector
+from detection.vision_ai_detector import VisionAIDetector
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -45,20 +45,20 @@ def main():
     # 1. Initialize Input (includes Preprocessing/Enhancement)
     stream = StreamHandler(config)
     
-    # 2. Initialize Gemini Model (Detection & Tracking disabled)
-    gemini_model = None
-    gemini_enabled = config.get('gemini', {}).get('enabled', False)
-    gemini_interval = config.get('gemini', {}).get('interval_seconds', 5)
-    last_gemini_query = 0
+    # 2. Initialize Vision AI Model (Detection & Tracking disabled)
+    vision_ai_model = None
+    vision_ai_enabled = config.get('vision_ai', {}).get('enabled', False)
+    vision_ai_interval = config.get('vision_ai', {}).get('interval_seconds', 5)
+    last_vision_ai_query = 0
     # Store persistent hybrid labels per tracking ID
     hybrid_labels = {} 
     
-    if gemini_enabled:
+    if vision_ai_enabled:
         try:
-             gemini_model = GeminiDetector(config)
-             logging.info("Gemini-Only module initialized.")
+             vision_ai_model = VisionAIDetector(config)
+             logging.info("Vision AI module initialized.")
         except ImportError:
-             logging.error("Failed to initialize GeminiDetector. google-genai may be missing.")
+             logging.error("Failed to initialize VisionAIDetector. google-genai may be missing.")
              return
     
     
@@ -153,12 +153,12 @@ def main():
         if not success:
             break
             
-        # 5. Inference (Gemini-Only)
-        if gemini_model:
-             gemini_results = gemini_model.detect(frame)
+        # 5. Inference (Vision AI-Only)
+        if vision_ai_model:
+             vision_ai_results = vision_ai_model.detect(frame)
              
-             # Convert Gemini results to Supervision Detections
-             if gemini_results:
+             # Convert Vision AI results to Supervision Detections
+             if vision_ai_results:
                  xyxy = []
                  conf = []
                  class_ids = []
@@ -169,7 +169,7 @@ def main():
                      'bus': 5, 'truck': 7, 'occupied_slot': 2
                  }
                  
-                 for det in gemini_results:
+                 for det in vision_ai_results:
                      box = det['boundingBox']
                      xyxy.append([box['x'], box['y'], box['x'] + box['width'], box['y'] + box['height']])
                      conf.append(det['confidence'])
@@ -192,7 +192,7 @@ def main():
         else:
              detections = sv.Detections.empty()
         
-        # Note: Tracker IDs are disabled in Gemini-only mode as it does not persist across frames natively.
+        # Note: Tracker IDs are disabled in Vision AI-only mode as it does not persist across frames natively.
         
         # 6. Process Logic
         
@@ -230,10 +230,10 @@ def main():
 
         # 7. Visualization
         labels = []
-        if gemini_results:
+        if vision_ai_results:
             labels = [
                 f"{det['type']} {det['confidence']:0.2f}"
-                for det in gemini_results
+                for det in vision_ai_results
             ]
         
         # Separate annotate calls

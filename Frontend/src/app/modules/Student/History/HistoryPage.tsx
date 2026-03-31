@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '@mui/material/styles';
+import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { 
   Search, 
   Filter, 
@@ -12,16 +12,28 @@ import {
 } from 'lucide-react';
 import { api } from '@utils/services/api';
 
+interface IPermitHistoryItem {
+  id: string;
+  issue_date: string;
+  expiry_date: string;
+  permit_type: string;
+  zone: string;
+  spot: string;
+  status: string;
+}
+
 const HistoryPage: React.FC = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [searchTerm, setSearchTerm] = useState('');
-  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyData, setHistoryData] = useState<IPermitHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Feature States
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
-  const [selectedPermit, setSelectedPermit] = useState<any>(null); // For Details Modal
+  const [selectedPermit, setSelectedPermit] = useState<IPermitHistoryItem | null>(null); // For Details Modal
 
   useEffect(() => {
     loadHistory();
@@ -39,7 +51,7 @@ const HistoryPage: React.FC = () => {
     }
   };
 
-  const filteredData = historyData.filter(row => {
+  const filteredData = historyData.filter((row: IPermitHistoryItem) => {
     const matchesSearch = 
       row.zone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       row.spot?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,7 +68,7 @@ const HistoryPage: React.FC = () => {
     const headers = ['Issue Date', 'Expiry Date', 'Type', 'Zone', 'Spot', 'Status'];
     const csvContent = [
       headers.join(','),
-      ...filteredData.map(row => [
+      ...filteredData.map((row: IPermitHistoryItem) => [
         new Date(row.issue_date).toLocaleDateString(),
         new Date(row.expiry_date).toLocaleDateString(),
         row.permit_type,
@@ -81,23 +93,23 @@ const HistoryPage: React.FC = () => {
 
   return (
     <>
-      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '1000px', width: '100%', padding: '0 1rem', margin: '0 auto' }}>
         <header style={{ 
           display: 'flex', 
+          flexWrap: 'wrap',
           justifyContent: 'space-between', 
           alignItems: 'flex-end', 
+          gap: '1rem',
           marginBottom: '2.5rem' 
         }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '2rem', 
-              fontWeight: 800, 
-              color: theme.palette.text.primary, 
-              marginBottom: '0.5rem',
-              letterSpacing: '-0.025em'
-            }}>Parking History</h1>
-            <p style={{ color: theme.palette.text.secondary }}>Review your previous parking sessions and durations.</p>
-          </div>
+          <Box sx={{ flex: 1 }}>
+            <Typography fontWeight={900} sx={{ fontSize: isMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+              Parking History
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, opacity: 0.9 }}>
+              Review your previous parking sessions and durations.
+            </Typography>
+          </Box>
           <button 
             onClick={handleExport}
             style={{
@@ -244,7 +256,7 @@ const HistoryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((row, i) => (
+                {filteredData.map((row: IPermitHistoryItem, i: number) => (
                   <tr key={row.id} style={{ 
                     borderBottom: i === filteredData.length - 1 ? 'none' : `1px solid ${theme.palette.divider}`,
                     transition: 'background-color 0.2s'
@@ -323,16 +335,16 @@ const HistoryPage: React.FC = () => {
             position: 'relative'
           }}>
              <button 
-               onClick={() => setSelectedPermit(null)} 
-               style={{ 
-                 position: 'absolute', 
-                 top: '1.5rem', 
-                 right: '1.5rem',
-                 background: 'none', 
-                 border: 'none', 
-                 cursor: 'pointer',
-                 color: theme.palette.text.secondary
-               }}
+                onClick={() => setSelectedPermit(null)} 
+                style={{ 
+                  position: 'absolute', 
+                  top: '1.5rem', 
+                  right: '1.5rem',
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  color: theme.palette.text.secondary
+                }}
              >
                <X size={24} />
              </button>

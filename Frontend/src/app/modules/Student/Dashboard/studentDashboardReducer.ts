@@ -5,8 +5,18 @@ import {
   FETCH_STUDENT_DATA_FAILURE 
 } from './studentDashboardActions';
 
+interface IStudentDashboardData {
+  [key: string]: unknown;
+}
+
+interface IStudentDashboardAction {
+  type: string;
+  data?: IStudentDashboardData;
+  error?: string;
+}
+
 export interface IStudentDashboardState {
-  data: any;
+  data: IStudentDashboardData | null;
   loading: boolean;
   error: string | null;
 }
@@ -17,7 +27,7 @@ const initialState: IStudentDashboardState = {
   error: null,
 };
 
-export const studentDashboardReducer = (state = initialState, action: any): IStudentDashboardState => {
+export const studentDashboardReducer = (state = initialState, action: IStudentDashboardAction): IStudentDashboardState => {
   switch (action.type) {
     case `${STUDENT_DASHBOARD_EVENT_CATEGORY}/${FETCH_STUDENT_DATA_PENDING}`:
       return {
@@ -29,13 +39,13 @@ export const studentDashboardReducer = (state = initialState, action: any): IStu
       return {
         ...state,
         loading: false,
-        data: action.data,
+        data: action.data || null,
       };
     case `${STUDENT_DASHBOARD_EVENT_CATEGORY}/${FETCH_STUDENT_DATA_FAILURE}`:
       return {
         ...state,
         loading: false,
-        error: action.error,
+        error: action.error || null,
       };
     default:
       return state;

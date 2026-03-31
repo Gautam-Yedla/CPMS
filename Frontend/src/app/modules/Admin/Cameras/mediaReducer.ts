@@ -6,9 +6,23 @@ export const CLEAR_STATUSES = `${MEDIA_EVENT_CATEGORY}/CLEAR_STATUSES`;
 export const SET_HISTORY = `${MEDIA_EVENT_CATEGORY}/SET_HISTORY`;
 export const ADD_HISTORY_ITEM = `${MEDIA_EVENT_CATEGORY}/ADD_HISTORY_ITEM`;
 
+interface IUploadHistoryItem {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface IMediaAction {
+  type: string;
+  name?: string;
+  status?: 'pending' | 'processing' | 'done' | 'error';
+  statuses?: Record<string, 'pending' | 'processing' | 'done' | 'error'>;
+  history?: IUploadHistoryItem[];
+  item?: IUploadHistoryItem;
+}
+
 export interface IMediaState {
   fileStatuses: Record<string, 'pending' | 'processing' | 'done' | 'error'>;
-  recentUploads: any[];
+  recentUploads: IUploadHistoryItem[];
 }
 
 const initialState: IMediaState = {
@@ -16,9 +30,10 @@ const initialState: IMediaState = {
   recentUploads: [],
 };
 
-export const mediaReducer = (state = initialState, action: any): IMediaState => {
+export const mediaReducer = (state = initialState, action: IMediaAction): IMediaState => {
   switch (action.type) {
     case SET_FILE_STATUS:
+      if (!action.name || !action.status) return state;
       return {
         ...state,
         fileStatuses: {
@@ -42,11 +57,12 @@ export const mediaReducer = (state = initialState, action: any): IMediaState => 
     case SET_HISTORY:
       return {
         ...state,
-        recentUploads: action.history,
+        recentUploads: action.history || [],
       };
     case ADD_HISTORY_ITEM:
+      if (!action.item) return state;
       // Avoid duplicates
-      if (state.recentUploads.some(item => item.id === action.item.id)) {
+      if (state.recentUploads.some(item => item.id === action.item!.id)) {
         return state;
       }
       return {

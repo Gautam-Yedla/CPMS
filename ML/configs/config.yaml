@@ -57,15 +57,15 @@ tracking:
   tracker_type: "bytetrack.yaml" # or botsort.yaml
   persist: true
 
-# Gemini Hybrid Configuration
-gemini:
-  model_name: "gemini-3.1-flash-lite-preview"
-  api_key: "" # Leave empty to use GEMINI_API_KEY environment variable
-  interval_seconds: 5 # How often main.py should query Gemini
+# Vision AI Engine Configuration
+vision_ai:
+  model_name: "gemini-3-flash-preview"
+  api_key: "" # Leave empty to use VISION_AI_API_KEY environment variable
+  interval_seconds: 5 # How often main.py should query Vision AI Engine
   enabled: true
-  max_image_dimension: 1536 # Resize large images before sending to API
+  max_image_dimension: 2048 # Resize large images before sending to API (upgraded for detail)
   enable_thinking: true # Enable chain-of-thought reasoning for better spatial analysis
-  min_vehicle_gap_px: 80 # Minimum pixel gap to consider as a feasible parking space
+  min_vehicle_gap_px: 60 # Slightly smaller gap threshold for tighter parking
 
 # Entry/Exit Gates (Virtual Lines)
 gates:

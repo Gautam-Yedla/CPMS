@@ -43,7 +43,7 @@ export class MLBridgeService {
         is_upload: isUpload,
         detection_type: detectionType
       }, {
-        timeout: 60000 // Increased timeout to 60 seconds to allow Gemini API to respond
+        timeout: 60000 // Increased timeout to 60 seconds to allow Vision AI API to respond
       });
 
       return response.data;

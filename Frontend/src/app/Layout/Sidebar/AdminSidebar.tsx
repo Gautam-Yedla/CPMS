@@ -17,7 +17,8 @@ import {
   ChevronRight,
   ShieldCheck,
   UserCog,
-  Key
+  Key,
+  X
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -29,9 +30,11 @@ interface SidebarItem {
 
 interface AdminSidebarProps {
   isOpen: boolean;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
+const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, isMobile, onClose }) => {
   const theme = useTheme();
   const location = useLocation();
   
@@ -78,30 +81,59 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
   });
 
   const toggleSection = (label: string) => {
-    if (!isOpen) return;
+    if (!isOpen && !isMobile) return;
     setOpenSections(prev => ({
       ...prev,
       [label]: !prev[label]
     }));
   };
 
+  const sidebarWidth = isMobile ? '280px' : (isOpen ? '260px' : '80px');
+
   return (
     <aside style={{ 
-      width: isOpen ? '260px' : '80px',
+      width: sidebarWidth,
       backgroundColor: theme.palette.background.paper,
       borderRight: `1px solid ${theme.palette.divider}`,
-      height: 'calc(100vh - 64px)',
-      transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      overflowX: isOpen ? 'hidden' : 'visible',
-      overflowY: isOpen ? 'auto' : 'visible', // Visible when collapsed to allow flyouts
+      height: isMobile ? '100vh' : 'calc(100vh - 64px)',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      overflowX: 'hidden',
+      overflowY: 'auto',
       display: 'flex',
       flexDirection: 'column',
-      position: 'sticky',
-      top: '64px',
-      zIndex: 40,
-      boxShadow: '0px 2px 4px rgba(0,0,0,0.02)'
+      position: isMobile ? 'fixed' : 'sticky',
+      top: isMobile ? 0 : '64px',
+      left: 0,
+      bottom: 0,
+      zIndex: isMobile ? 1000 : 40,
+      boxShadow: isMobile ? '10px 0 30px rgba(0,0,0,0.1)' : '0px 2px 4px rgba(0,0,0,0.02)',
+      transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none'
     }} className="custom-scrollbar">
-      <div style={{ padding: '1.5rem 0', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      
+      {isMobile && (
+        <div style={{ 
+          padding: '1.25rem', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${theme.palette.divider}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ backgroundColor: theme.palette.primary.main, padding: '6px', borderRadius: '8px', color: 'white' }}>
+              <Car size={20} />
+            </div>
+            <span style={{ fontWeight: 800, fontSize: '1.25rem', color: theme.palette.text.primary }}>CPMS Admin</span>
+          </div>
+          <button 
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: theme.palette.text.secondary }}
+          >
+            <X size={24} />
+          </button>
+        </div>
+      )}
+
+      <div style={{ padding: '1rem 0', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {menuItems.map((item) => {
           if (item.subItems) {
             const isSubItemActive = item.subItems.some(sub => location.pathname === sub.path);
@@ -137,28 +169,28 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
                     opacity: isSubItemActive ? 1 : 0,
                     transition: 'opacity 0.2s'
                   }} />
-                  <div style={{ minWidth: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <div style={{ minWidth: isMobile ? '60px' : '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     {item.icon}
                   </div>
                   <span style={{ 
                     whiteSpace: 'nowrap', 
-                    opacity: isOpen ? 1 : 0,
+                    opacity: (isOpen || isMobile) ? 1 : 0,
                     transition: 'opacity 0.3s',
-                    visibility: isOpen ? 'visible' : 'hidden',
+                    visibility: (isOpen || isMobile) ? 'visible' : 'hidden',
                     flex: 1,
                     textAlign: 'left'
                   }}>
                     {item.label}
                   </span>
-                  {isOpen && (
+                  {(isOpen || isMobile) && (
                     <div style={{ paddingRight: '1rem' }}>
                       {isSectionOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </div>
                   )}
                 </button>
                 
-                {/* Inline Expansion (Open State) */}
-                {isOpen && isSectionOpen && (
+                {/* Inline Expansion */}
+                {(isOpen || isMobile) && isSectionOpen && (
                   <div style={{ 
                     backgroundColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', 
                     padding: '0.25rem 0' 
@@ -167,6 +199,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
                       <NavLink
                         key={sub.path}
                         to={sub.path!}
+                        onClick={() => isMobile && onClose && onClose()}
                         style={({ isActive }) => ({
                           display: 'flex',
                           alignItems: 'center',
@@ -188,8 +221,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
                   </div>
                 )}
 
-                {/* Flyout Menu (Collapsed State) */}
-                {!isOpen && (
+                {/* Flyout Menu (Collapsed Desktop only) */}
+                {!isOpen && !isMobile && (
                   <div 
                     className="flyout-menu"
                     style={{
@@ -203,7 +236,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
                       border: `1px solid ${theme.palette.divider}`,
                       borderLeft: 'none',
                       zIndex: 100,
-                      display: 'none', // Managed by CSS hover
+                      display: 'none', 
                       flexDirection: 'column',
                       padding: '0.5rem 0'
                     }}
@@ -249,6 +282,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
             <div key={item.path} style={{ position: 'relative' }} className="group">
               <NavLink
                 to={item.path!}
+                onClick={() => isMobile && onClose && onClose()}
                 style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
@@ -275,21 +309,21 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
                   opacity: 0,
                   transition: 'opacity 0.2s'
                 }} className="active-indicator" />
-                <div style={{ minWidth: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <div style={{ minWidth: isMobile ? '60px' : '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                   {item.icon}
                 </div>
                 <span style={{ 
                   whiteSpace: 'nowrap', 
-                  opacity: isOpen ? 1 : 0,
+                  opacity: (isOpen || isMobile) ? 1 : 0,
                   transition: 'opacity 0.3s',
-                  visibility: isOpen ? 'visible' : 'hidden'
+                  visibility: (isOpen || isMobile) ? 'visible' : 'hidden'
                 }}>
                   {item.label}
                 </span>
               </NavLink>
 
-              {/* Tooltip for standard items when collapsed */}
-              {!isOpen && (
+              {/* Tooltip for desktop collapsed */}
+              {!isOpen && !isMobile && (
                  <div 
                    className="flyout-menu"
                    style={{
@@ -331,28 +365,16 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
           color: ${theme.palette.text.primary};
         }
 
-        /* Show flyout on hover when collapsed */
         .group:hover .flyout-menu {
           display: flex !important;
-          animation: fadeIn 0.2s ease-out;
+          animation: fadeInSidebar 0.2s ease-out;
         }
 
-        @keyframes fadeIn {
+        @keyframes fadeInSidebar {
           from { opacity: 0; transform: translateX(-10px); }
           to { opacity: 1; transform: translateX(0); }
         }
 
-        /* Adjust tooltip position animation */
-        .group:hover .flyout-menu[style*="top: 50%"] {
-          animation: fadeInTooltip 0.2s ease-out;
-        }
-        
-        @keyframes fadeInTooltip {
-           from { opacity: 0; transform: translate(-10px, -50%); }
-           to { opacity: 1; transform: translate(0, -50%); }
-        }
-
-        /* Custom Scrollbar for Sidebar */
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
@@ -362,9 +384,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background: ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'};
           border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'};
         }
       `}</style>
     </aside>

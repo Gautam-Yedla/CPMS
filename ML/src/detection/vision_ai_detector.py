@@ -9,93 +9,77 @@ from PIL import Image
 from google import genai
 from google.genai import types
 
-class GeminiDetector:
+class VisionAIDetector:
     """
     Detects vehicles and infers feasible empty parking spaces using
-    Google's Gemini Vision API.
+    Cloud-based Vision AI API.
     
     Designed for UNMARKED parking lots — no painted lines or slot markings.
     Uses spatial reasoning to identify gaps where a vehicle could park.
     """
     def __init__(self, config):
         self.config = config
-        self.api_key = os.environ.get("GEMINI_API_KEY") or config.get("gemini", {}).get("api_key")
-        self.model_name = config.get("gemini", {}).get("model_name", "gemini-3.1-flash-lite-preview")
-        self.max_image_dim = config.get("gemini", {}).get("max_image_dimension", 1536)
-        self.enable_thinking = config.get("gemini", {}).get("enable_thinking", True)
+        self.api_key = os.environ.get("VISION_AI_API_KEY") or config.get("vision_ai", {}).get("api_key")
+        self.model_name = config.get("vision_ai", {}).get("model_name", "gemini-2.0-flash")
+        self.max_image_dim = config.get("vision_ai", {}).get("max_image_dimension", 2048)
+        self.enable_thinking = config.get("vision_ai", {}).get("enable_thinking", True)
         
         # Build zone context string from config
         self.zone_context = self._build_zone_context(config)
         
         if not self.api_key:
-            logging.warning("GEMINI_API_KEY is not set. GeminiDetector will be disabled.")
+            logging.warning("VISION_AI_API_KEY is not set. VisionAIDetector will be disabled.")
             self.client = None
         else:
             try:
-                logging.info(f"Initializing Gemini Client with model: {self.model_name}")
+                logging.info(f"Initializing Vision AI Client with model: {self.model_name}")
                 self.client = genai.Client(api_key=self.api_key)
             except Exception as e:
-                logging.error(f"Failed to initialize Gemini Client: {e}")
+                logging.error(f"Failed to initialize Vision AI Client: {e}")
                 self.client = None
 
-        self.system_instruction = """You are an expert parking lot analyst AI. Your task is to analyze aerial or surveillance camera images of parking areas and identify:
-
-1. ALL PARKED VEHICLES — every vehicle visible in the image
-2. ALL FEASIBLE EMPTY PARKING SPACES — areas where a vehicle COULD realistically park
-
-CRITICAL CONTEXT: This parking lot has NO PAINTED LINES or slot markings. You must use SPATIAL REASONING to determine where vehicles are and where empty spaces exist.
+        # --- REFINED SYSTEM INSTRUCTION ---
+        self.system_instruction = """You are a highly precise autonomous parking lot analyst. Your objective is to perform deep spatial reasoning on surveillance images to map a parking environment, especially in lots with UNMARKED SPACES (no painted lines).
 
 ═══════════════════════════════════════
-VEHICLE DETECTION RULES
+DETECTION OBJECTIVES
 ═══════════════════════════════════════
 
-Detect EVERY vehicle visible in the image. For each vehicle:
-- Classify its type: "car", "motorcycle", "truck", "bus", or "bicycle"
-- Draw a TIGHT bounding box around the entire vehicle body
-- Estimate confidence based on how clearly visible the vehicle is
-- Do NOT miss partially visible vehicles at image edges — include them with lower confidence
+        # 1. IDENTIFY ALL PARKED VEHICLES:
+        #    - This includes cars, motorcycles, trucks, buses, and bicycles.
+        #    - For heavily crowded areas, distinguish between overlapping vehicles.
+        #    - Use shadow patterns and tire positions to confirm vehicle existence in low-contrast, dark, or dirt areas.
+        # 
+        # 2. INFER ALL FEASIBLE EMPTY SLOTS (THE 'CAPACITY' RULE):
+        #    - In unmarked lots, you must identify every single spot where a vehicle COULD fit without blocking access.
+        #    - MANDATORY SUBDIVISION: If you detect an open area that can fit more than one vehicle, DO NOT return a single large box. You must subdivide it into multiple adjacent `car_space` or `motorcycle_space` boxes. 
+        #    - AGGRESSIVE FOREGROUND DETECTION: Treat large open areas in the foreground (even if they looks like clearings or dirt paths) as feasible parking unless they are significantly narrow or blocked. Populate wide open foregrounds with a row of `car_space` detections.
+        #    - Example: If an empty area can fit 3 cars, you MUST return 3 separate `car_space` JSON objects.
+        #    - A area is FEASIBLE if:
+        #      ✓ it is on a paved, gravel, or well-trodden dirt surface (if vehicles are already parked there, it is a valid surface).
+        #      ✓ it is large enough (use parked vehicles as a size reference).
+        #      ✓ it follows the orientation and alignment of nearby parked vehicles to create orderly rows.
+        #      ✓ it provides clear ingress/egress.
+        #    - A area is NOT FEASIBLE if:
+        #      ✗ it is a narrow strictly-defined driving lane or exit/entry bottleneck.
+        #      ✗ it contains a permanent obstacle.
+        #      ✗ it is a soft garden, grass patch, or pedestrian-only zone.
+        # 
+        # ═══════════════════════════════════════
+        # SPATIAL REASONING LOGIC
+        # ═══════════════════════════════════════
+        # 
+        # - SCALE REFERENCE: Use the largest detected vehicle (e.g., a car) to estimate the dimensions of a `car_space`. Use it to "measure" the surrounding empty ground.
+        # - GRID-BASED FILLING: For an empty dirt/gravel area, fill it with a grid of `car_space` boxes that match the angle of the nearest parked car.
+        # - PERSPECTIVE: If the image is at a low angle, ensure boxes further away are smaller, following the lines of perspective.
+        # - UNCERTAINTY: If a vehicle is 70% visible at the boundary, detect it but mark confidence lower (~0.6).
 
 ═══════════════════════════════════════
-FEASIBLE EMPTY SPACE DETECTION RULES
+OUTPUT REQUIREMENTS
 ═══════════════════════════════════════
-
-Since there are NO painted parking lines, use these spatial reasoning criteria to identify feasible empty parking spaces:
-
-A space is FEASIBLE if ALL of these conditions are met:
-  ✓ The area is paved surface (asphalt, concrete, gravel) — NOT grass, dirt paths, or sidewalks
-  ✓ The gap is large enough for at least one standard vehicle (~2m wide × ~4.5m long for cars, ~1m × ~2m for motorcycles)
-  ✓ A vehicle could physically ENTER the space (not blocked on all sides)
-  ✓ The space is ALIGNED with the parking pattern of nearby vehicles (same row/angle)
-  ✓ The space is NOT a driving lane, driveway, entrance/exit road, or pedestrian path
-
-A space is NOT feasible if:
-  ✗ It's too narrow (less than ~1.5m gap between two vehicles)
-  ✗ It's a driving/access lane that vehicles use to navigate the lot
-  ✗ It contains obstacles (poles, barriers, curbs, trees, debris)
-  ✗ It's on unpaved/non-parking surface (grass, garden, sidewalk)
-
-For each feasible space, estimate what vehicle type fits best:
-  - "car_space" — fits a standard car (~2m × 4.5m)
-  - "motorcycle_space" — fits a motorcycle but NOT a car (~1m × 2m)
-  - "large_vehicle_space" — fits a truck or bus (~3m × 7m+)
-
-═══════════════════════════════════════
-OUTPUT FORMAT
-═══════════════════════════════════════
-
-Return ONLY a valid JSON array. Each element must have:
-- "type": one of "car", "motorcycle", "truck", "bus", "bicycle", "car_space", "motorcycle_space", "large_vehicle_space"
-- "confidence": float between 0.0 and 1.0
-- "boundingBox": {"ymin": int, "xmin": int, "ymax": int, "xmax": int} — normalized to a 1000×1000 grid
-
-Example output:
-[
-    {"type": "car", "confidence": 0.95, "boundingBox": {"ymin": 100, "xmin": 200, "ymax": 300, "xmax": 450}},
-    {"type": "car_space", "confidence": 0.80, "boundingBox": {"ymin": 100, "xmin": 460, "ymax": 300, "xmax": 700}},
-    {"type": "motorcycle", "confidence": 0.88, "boundingBox": {"ymin": 350, "xmin": 150, "ymax": 420, "xmax": 220}}
-]
-
-IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing detections is worse than a slightly wrong bounding box."""
+- Use a 1000x1000 normalized grid for bounding boxes.
+- Return a JSON array where each object strictly follows the defined schema.
+- Be extremely thorough; missing a vehicle is a critical failure. Identify every possible parking opportunity."""
 
     def _build_zone_context(self, config):
         """Build a text description of configured parking zones for prompt context."""
@@ -109,7 +93,7 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
         return "\n".join(parts)
 
     def _preprocess_image(self, image_np):
-        """Enhance and resize image for optimal Gemini analysis."""
+        """Enhance and resize image for optimal Vision AI analysis."""
         h, w = image_np.shape[:2]
         
         # Resize if too large (saves API bandwidth, improves speed)
@@ -133,7 +117,7 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
         Returns a list of parsed detection dictionaries.
         """
         if not self.client:
-            logging.error("Gemini client is not initialized.")
+            logging.error("Vision AI client is not initialized.")
             return []
 
         # Preprocess for better detection
@@ -150,21 +134,50 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
             user_prompt += f"\n\nAdditional context:\n{self.zone_context}"
         user_prompt += "\n\nReturn ONLY the JSON array — no explanation, no markdown."
         
+        # --- NEW: JSON SCHEMA FOR ACCURACY ---
+        schema = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "car", "motorcycle", "truck", "bus", "bicycle",
+                            "car_space", "motorcycle_space", "large_vehicle_space"
+                        ]
+                    },
+                    "confidence": {"type": "number"},
+                    "boundingBox": {
+                        "type": "object",
+                        "properties": {
+                            "ymin": {"type": "integer"},
+                            "xmin": {"type": "integer"},
+                            "ymax": {"type": "integer"},
+                            "xmax": {"type": "integer"}
+                        },
+                        "required": ["ymin", "xmin", "ymax", "xmax"]
+                    }
+                },
+                "required": ["type", "confidence", "boundingBox"]
+            }
+        }
+
         # Configure generation
         generation_config = types.GenerateContentConfig(
-            temperature=0.1,
+            temperature=0.0,  # Max consistency
             response_mime_type="application/json",
+            response_schema=schema,
             system_instruction=self.system_instruction,
         )
         
-        # Enable thinking for better reasoning if supported
+        # Increase thinking budget for Gemini 2.0 Flash
         if self.enable_thinking:
             try:
                 generation_config.thinking_config = types.ThinkingConfig(
-                    thinking_budget=2048
+                    thinking_budget=4096  # Doubled for more complex spatial analysis
                 )
             except Exception:
-                # Thinking not supported for this model version — skip silently
                 pass
 
         # Retry loop
@@ -187,7 +200,7 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
                 vehicles = [d for d in detections if d['type'] in ('car', 'motorcycle', 'truck', 'bus', 'bicycle')]
                 spaces = [d for d in detections if d['type'].endswith('_space')]
                 logging.info(
-                    f"[GEMINI] Detected {len(vehicles)} vehicles, {len(spaces)} feasible spaces "
+                    f"[VISION_AI] Detected {len(vehicles)} vehicles, {len(spaces)} feasible spaces "
                     f"({elapsed}ms, attempt {attempt + 1})"
                 )
                 
@@ -196,8 +209,8 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
             except Exception as e:
                 import traceback
                 error_detail = traceback.format_exc()
-                logging.error(f"[GEMINI] Attempt {attempt + 1} failed: {e}")
-                logging.debug(f"[GEMINI] Stack trace: {error_detail}")
+                logging.error(f"[VISION_AI] Attempt {attempt + 1} failed: {e}")
+                logging.debug(f"[VISION_AI] Stack trace: {error_detail}")
                 if attempt < retry_count:
                     time.sleep(1)  # Brief pause before retry
                     continue
@@ -227,7 +240,7 @@ IMPORTANT: Be thorough. Count EVERY vehicle AND every feasible space. Missing de
                 return []
 
         if not isinstance(detections, list):
-            logging.error(f"Expected list from Gemini, got {type(detections)}")
+            logging.error(f"Expected list from Vision AI, got {type(detections)}")
             return []
 
         # Map normalized 0–1000 coordinates to actual pixel dimensions

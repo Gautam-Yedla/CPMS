@@ -15,9 +15,12 @@ import {
   AccordionDetails,
   useTheme,
   Fade,
+  useMediaQuery,
+  CircularProgress,
+  Stack,
+  IconButton,
   List,
-  ListItem,
-  InputAdornment
+  ListItem
 } from '@mui/material';
 import { 
   Plus, 
@@ -29,10 +32,12 @@ import {
   Activity, 
   Video, 
   Car,
-  FolderLock
+  FolderLock,
+  X
 } from 'lucide-react';
 import { api } from '@utils/services/api';
 import { toast } from 'react-toastify';
+import ErrorBoundary from '@shared/components/ErrorBoundary';
 
 interface Permission {
   id: string;
@@ -43,21 +48,37 @@ interface Permission {
 }
 
 const PermissionsPage: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <PermissionsPageContent />
+    </ErrorBoundary>
+  );
+};
+
+const PermissionsPageContent: React.FC = () => {
   const theme = useTheme();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // UX Breakpoints
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isExtraSmall = useMediaQuery('(max-width:400px)');
+
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', module: '', description: '', scope: 'global' });
   const [expandedAccordions, setExpandedAccordions] = useState<string[]>([]);
+
+  // Adaptive Sizing (De-bulked)
+  const controlHeight = isMobile ? '38px' : '44px';
+  const controlFontSize = isMobile ? '0.8rem' : '0.9rem';
+  const containerPadding = isExtraSmall ? 2 : isMobile ? 3 : 5;
 
   const fetchPermissions = async () => {
     try {
       setLoading(true);
       const data = await api.fetchPermissions();
       setPermissions(data);
-      // Auto-expand all by default initially
       const modules = Array.from(new Set(data.map((p: Permission) => p.module)));
       setExpandedAccordions(modules as string[]);
     } catch (error) {
@@ -87,8 +108,9 @@ const PermissionsPage: React.FC = () => {
       toast.success('Permission created successfully');
       fetchPermissions();
       handleCloseModal();
-    } catch (error: any) {
-      toast.error(error.message || 'Operation failed');
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Operation failed');
     }
   };
 
@@ -98,7 +120,6 @@ const PermissionsPage: React.FC = () => {
     );
   };
 
-  // Memoize grouped & filtered permissions
   const groupedPermissions = useMemo(() => {
     const filtered = permissions.filter(perm => 
       perm.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,15 +138,14 @@ const PermissionsPage: React.FC = () => {
     return groups;
   }, [permissions, searchTerm]);
 
-  // Helper to get an icon based on module name
   const getModuleIcon = (moduleName: string) => {
     const name = moduleName.toLowerCase();
-    if (name.includes('user') || name.includes('auth')) return <Users size={20} />;
-    if (name.includes('camera') || name.includes('stream')) return <Video size={20} />;
-    if (name.includes('park') || name.includes('vehicle')) return <Car size={20} />;
-    if (name.includes('activ') || name.includes('log')) return <Activity size={20} />;
-    if (name.includes('system') || name.includes('setting')) return <Settings size={20} />;
-    return <FolderLock size={20} />;
+    if (name.includes('user') || name.includes('auth')) return <Users size={18} />;
+    if (name.includes('camera') || name.includes('stream')) return <Video size={18} />;
+    if (name.includes('park') || name.includes('vehicle')) return <Car size={18} />;
+    if (name.includes('activ') || name.includes('log')) return <Activity size={18} />;
+    if (name.includes('system') || name.includes('setting')) return <Settings size={18} />;
+    return <FolderLock size={18} />;
   };
 
   const getModuleColor = (moduleName: string) => {
@@ -138,252 +158,191 @@ const PermissionsPage: React.FC = () => {
   };
 
   return (
-    <Box p={2}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <div>
-           <Typography fontWeight="700" sx={{ fontSize: '1.875rem', color: theme.palette.text.primary, mb: 0.5 }}>
-            System Capabilities
+    <Box p={containerPadding} display="flex" flexDirection="column" gap={isMobile ? 3 : 5}>
+      
+      {/* Search and Action Header */}
+      <Box display="flex" flexDirection={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'flex-start' : 'center'} gap={4}>
+        <Box>
+          <Typography fontWeight="900" sx={{ fontSize: isExtraSmall ? '1.75rem' : isMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+            Permissions
           </Typography>
-          <Typography variant="body1" color="text.secondary">Define explicit granular capabilities across all logical modules.</Typography>
-        </div>
-        <Box display="flex" gap={2} alignItems="center">
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, opacity: 0.9 }}>
+            Manage access levels and permissions across all modules
+          </Typography>
+        </Box>
+        
+        <Stack direction={isMobile ? 'column' : 'row'} spacing={2} width={isMobile ? '100%' : 'auto'} alignItems="center">
           <Paper 
-            elevation={0} 
-            sx={{ 
-              px: 2, 
-              py: 0.75, 
-              borderRadius: '12px',
-              border: `1px solid ${theme.palette.divider}`,
-              background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
-              backdropFilter: 'blur(10px)',
-              width: '320px'
-            }}
-          >
-            <TextField 
-              variant="standard" 
-              placeholder="Search capabilities by name or description..." 
-              fullWidth 
-              InputProps={{ 
-                disableUnderline: true, 
-                style: { fontSize: '0.95rem' },
-                startAdornment: <InputAdornment position="start"><Search size={18} color={theme.palette.text.secondary} /></InputAdornment>
+              elevation={0} 
+              sx={{ 
+                px: 2, borderRadius: '12px', flex: isMobile ? 'none' : 1,
+                width: isMobile ? '100%' : '300px',
+                border: `1px solid ${theme.palette.divider}`,
+                background: theme.palette.background.paper,
+                display: 'flex', alignItems: 'center', height: controlHeight
               }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          >
+              <Search size={18} color={theme.palette.text.secondary} />
+              <TextField 
+                variant="standard" placeholder="Search permissions..." fullWidth sx={{ ml: 1.5 }}
+                InputProps={{ disableUnderline: true, style: { fontSize: controlFontSize, fontWeight: 600 } }}
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              />
           </Paper>
+
           <Button 
             variant="contained" 
-            size="large"
-            color="info"
-            startIcon={<Plus size={20} />}
+            size="medium"
             onClick={handleOpenModal}
-            sx={{ borderRadius: '12px', boxShadow: `0 8px 16px ${theme.palette.info.main}40`, px: 3, height: '42px' }}
+            startIcon={<Plus size={18} />}
+            sx={{ borderRadius: '12px', fontWeight: 900, height: controlHeight, px: 3, textTransform: 'none', width: isMobile ? '100%' : 'auto' }}
           >
-            New Capability
+            Add Permission
           </Button>
-        </Box>
+        </Stack>
       </Box>
 
-      <Box display="flex" flexDirection="column" gap={3}>
-        {Object.keys(groupedPermissions).sort().map(moduleName => {
-          const modColor = getModuleColor(moduleName);
-          const isExpanded = expandedAccordions.includes(moduleName);
-          
-          return (
-            <Fade in={true} key={moduleName}>
-              <Accordion 
-                expanded={isExpanded}
-                onChange={() => toggleAccordion(moduleName)}
-                disableGutters
-                elevation={0}
-                sx={{
-                  background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : '#ffffff',
-                  border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: '16px !important',
-                  overflow: 'hidden',
-                  '&:before': { display: 'none' }, // Remove default accordion top border
-                  boxShadow: isExpanded 
-                    ? `0 8px 32px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.05)'}` 
-                    : 'none',
-                  transition: 'box-shadow 0.3s'
-                }}
-              >
-                <AccordionSummary
-                  expandIcon={<ChevronDown color={theme.palette.text.secondary} />}
+      {/* Permissions Content */}
+      <Box flex={1} display="flex" flexDirection="column" gap={2}>
+        {loading ? (
+             <Box display="flex" justifyContent="center" py={12}><CircularProgress thickness={5} size={70} /></Box>
+        ) : Object.keys(groupedPermissions).length === 0 ? (
+          <Box textAlign="center" py={15} sx={{ opacity: 0.3 }}>
+            <FolderLock size={100} strokeWidth={1} style={{ marginBottom: 20 }} />
+            <Typography variant="h5" fontWeight="800">No Permissions Found</Typography>
+          </Box>
+        ) : (
+          Object.keys(groupedPermissions).sort().map(moduleName => {
+            const modColor = getModuleColor(moduleName);
+            const isExpanded = expandedAccordions.includes(moduleName);
+            
+            return (
+              <Fade in={true} key={moduleName}>
+                <Accordion 
+                  expanded={isExpanded}
+                  onChange={() => toggleAccordion(moduleName)}
+                  disableGutters
+                  elevation={0}
                   sx={{
-                    px: 3,
-                    py: 1,
-                    background: isExpanded 
-                      ? (theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.01)')
-                      : 'transparent',
-                    borderBottom: isExpanded ? `1px solid ${theme.palette.divider}` : 'none'
+                    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : '#ffffff',
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: '16px !important',
+                    overflow: 'hidden',
+                    '&:before': { display: 'none' },
+                    boxShadow: isExpanded ? `0 4px 20px rgba(0,0,0,0.03)` : 'none'
                   }}
                 >
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Box 
-                      sx={{ 
-                        p: 1.2, 
-                        borderRadius: '12px', 
-                        background: `${modColor}20`,
-                        color: modColor,
-                        display: 'flex'
-                      }}
-                    >
-                      {getModuleIcon(moduleName)}
+                  <AccordionSummary
+                    expandIcon={<ChevronDown size={18} color={theme.palette.text.secondary} />}
+                    sx={{
+                      px: isMobile ? 2 : 3,
+                      py: 0.5,
+                      background: isExpanded ? 'rgba(0,0,0,0.01)' : 'transparent',
+                      borderBottom: isExpanded ? `1px solid ${theme.palette.divider}` : 'none'
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <Box sx={{ p: 1, borderRadius: '10px', background: `${modColor}10`, color: modColor, display: 'flex' }}>
+                        {getModuleIcon(moduleName)}
+                      </Box>
+                      <Box>
+                        <Typography variant="body1" fontWeight="900" sx={{ textTransform: 'capitalize' }}>
+                          {moduleName} Module
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" fontWeight="800" sx={{ fontSize: '0.65rem' }}>
+                          {groupedPermissions[moduleName].length} PERMISSIONS
+                        </Typography>
+                      </Box>
                     </Box>
-                    <Box>
-                      <Typography variant="h6" fontWeight="700" sx={{ textTransform: 'capitalize' }}>
-                        {moduleName} Module
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" fontWeight="600">
-                        {groupedPermissions[moduleName].length} CAPABILITIES
-                      </Typography>
-                    </Box>
-                  </Box>
-                </AccordionSummary>
-                
-                <AccordionDetails sx={{ p: 0 }}>
-                  <List disablePadding>
-                    {groupedPermissions[moduleName].map((perm, index) => (
-                      <ListItem 
-                        key={perm.id}
-                        sx={{
-                          px: 3,
-                          py: 2.5,
-                          borderBottom: index < groupedPermissions[moduleName].length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 2,
-                          transition: 'background 0.2s',
-                          '&:hover': { background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)' }
-                        }}
-                      >
-                         <Box mt={0.5}>
-                           <ShieldAlert size={18} color={theme.palette.text.disabled} />
-                         </Box>
-                         <Box flex={1}>
-                           <Box display="flex" alignItems="center" gap={1.5} mb={0.5}>
-                             <Typography variant="subtitle1" fontWeight="700" sx={{ fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
-                               {perm.name}
-                             </Typography>
-                             <Chip 
-                               label={perm.scope}
-                               size="small"
-                               sx={{
-                                 height: '20px',
-                                 fontSize: '0.65rem',
-                                 fontWeight: 700,
-                                 textTransform: 'uppercase',
-                                 background: perm.scope === 'global' ? `${theme.palette.error.main}1A` : `${theme.palette.success.main}1A`,
-                                 color: perm.scope === 'global' ? theme.palette.error.main : theme.palette.success.main,
-                                 border: `1px solid ${perm.scope === 'global' ? theme.palette.error.main : theme.palette.success.main}40`
-                               }}
-                             />
+                  </AccordionSummary>
+                  
+                  <AccordionDetails sx={{ p: 0 }}>
+                    <List disablePadding>
+                      {groupedPermissions[moduleName].map((perm, index) => (
+                        <ListItem 
+                          key={perm.id}
+                          sx={{
+                            px: isMobile ? 2.5 : 4,
+                            py: 2,
+                            borderBottom: index < groupedPermissions[moduleName].length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 2,
+                            '&:hover': { background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)' }
+                          }}
+                        >
+                           <Box mt={0.5} sx={{ color: theme.palette.text.disabled, display: 'flex' }}>
+                             <ShieldAlert size={16} />
                            </Box>
-                           <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                             {perm.description || 'No detailed description provided.'}
-                           </Typography>
-                         </Box>
-                      </ListItem>
-                    ))}
-                  </List>
-                </AccordionDetails>
-              </Accordion>
-            </Fade>
-          );
-        })}
-
-        {Object.keys(groupedPermissions).length === 0 && !loading && (
-          <Box py={8} display="flex" flexDirection="column" alignItems="center" justifyContent="center" sx={{ opacity: 0.5 }}>
-            <FolderLock size={48} style={{ marginBottom: '16px' }} />
-            <Typography variant="h6">No permissions found</Typography>
-          </Box>
+                           <Box flex={1}>
+                             <Box display="flex" alignItems="center" gap={1.5} mb={0.25} flexWrap="wrap">
+                               <Typography variant="caption" fontWeight="900" sx={{ fontFamily: 'monospace', letterSpacing: '-0.2px', fontSize: '0.8rem' }}>
+                                 {perm.name}
+                               </Typography>
+                               <Chip 
+                                 label={perm.scope}
+                                 size="small"
+                                 sx={{
+                                   height: '18px',
+                                   fontSize: '0.55rem',
+                                   fontWeight: 800,
+                                   textTransform: 'uppercase',
+                                   background: perm.scope === 'global' ? `${theme.palette.error.main}10` : `${theme.palette.success.main}10`,
+                                   color: perm.scope === 'global' ? theme.palette.error.main : theme.palette.success.main
+                                 }}
+                               />
+                             </Box>
+                             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5, fontWeight: 500, fontSize: '0.75rem' }}>
+                               {perm.description || 'No detailed description provided.'}
+                             </Typography>
+                           </Box>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </AccordionDetails>
+                </Accordion>
+              </Fade>
+            );
+          })
         )}
       </Box>
 
-      {/* Premium Create Modal */}
-      <Dialog 
-        open={modalOpen} 
-        onClose={handleCloseModal} 
-        maxWidth="sm" 
-        fullWidth 
-        TransitionComponent={Fade}
-        PaperProps={{ 
-          sx: { 
-            borderRadius: '20px',
-            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            backgroundImage: 'none',
-            boxShadow: theme.palette.mode === 'dark' ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.1)'
-          } 
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem', pb: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ p: 1, borderRadius: '8px', background: `${theme.palette.info.main}1A`, color: theme.palette.info.main, display: 'flex' }}>
-            <FolderLock size={20} />
-          </Box>
-          Define New Capability
+      {/* Refined Create Permission Dialog (De-bulked) */}
+      <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="xs" fullWidth TransitionComponent={Fade} PaperProps={{ sx: { borderRadius: '24px' } }}>
+        <DialogTitle sx={{ fontWeight: 900, p: 0 }}>
+           <Box sx={{ p: isMobile ? 2.5 : 3, bgcolor: `${theme.palette.info.main}08`, color: theme.palette.info.main, borderRadius: '24px 24px 0 0', display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'white', display: 'flex', boxShadow: theme.shadows[2] }}><ShieldAlert size={18} /></Box>
+              <Box>
+                <Typography variant="body1" fontWeight="900">Add Permission</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 700, fontSize: '0.65rem' }}>Register new access rule</Typography>
+              </Box>
+              <IconButton size="small" onClick={handleCloseModal} sx={{ ml: 'auto', bgcolor: theme.palette.mode==='dark'?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.05)', color: 'inherit' }}><X size={16} /></IconButton>
+           </Box>
         </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            Register a new system permission to govern access across modules.
-          </Typography>
-          <Box display="flex" flexDirection="column" gap={2.5}>
-            <TextField
-              label="Capability Name (e.g., users.create)"
-              variant="filled"
-              fullWidth
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              helperText="Follow dot notation standards"
-              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-            />
-            <Box display="flex" gap={2}>
-              <TextField
-                label="Module Category"
-                variant="filled"
-                fullWidth
-                value={formData.module}
-                onChange={(e) => setFormData({ ...formData, module: e.target.value })}
-                InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-              />
-              <TextField
-                  label="Execution Scope"
-                  variant="filled"
-                  fullWidth
-                  value={formData.scope}
-                  onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
-                  InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-              />
+        <DialogContent sx={{ p: isMobile ? 2.5 : 3.5, pt: isMobile ? 3 : 4 }}>
+          <Stack spacing={3}>
+            <Box>
+               <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1.5, mb: 0.75, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem' }}>Permission Name</Typography>
+               <TextField variant="filled" fullWidth placeholder="e.g. users.create" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} InputProps={{ disableUnderline: true, sx: { borderRadius: '14px', fontWeight: 700, height: 44, fontSize: '0.85rem' } }} />
             </Box>
-            <TextField
-              label="Functional Documentation"
-              variant="filled"
-              fullWidth
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-            />
-          </Box>
+            <Stack direction="row" spacing={2}>
+              <Box flex={1}>
+                <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1.5, mb: 0.75, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem' }}>Module</Typography>
+                <TextField variant="filled" fullWidth value={formData.module} onChange={(e) => setFormData({ ...formData, module: e.target.value })} InputProps={{ disableUnderline: true, sx: { borderRadius: '14px', fontWeight: 700, height: 44, fontSize: '0.85rem' } }} />
+              </Box>
+              <Box flex={1}>
+                <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1.5, mb: 0.75, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem' }}>Scope</Typography>
+                <TextField variant="filled" fullWidth value={formData.scope} onChange={(e) => setFormData({ ...formData, scope: e.target.value })} InputProps={{ disableUnderline: true, sx: { borderRadius: '14px', fontWeight: 700, height: 44, fontSize: '0.85rem' } }} />
+              </Box>
+            </Stack>
+            <Box>
+               <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1.5, mb: 0.75, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem' }}>Description</Typography>
+               <TextField variant="filled" fullWidth multiline rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} InputProps={{ disableUnderline: true, sx: { borderRadius: '14px', fontWeight: 700, fontSize: '0.85rem', p: 1.5 } }} />
+            </Box>
+          </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 1 }}>
-          <Button onClick={handleCloseModal} color="inherit" sx={{ borderRadius: '10px', px: 3, fontWeight: 600 }}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="info" 
-            onClick={handleSubmit} 
-            disabled={!formData.name || !formData.module} 
-            sx={{ 
-              borderRadius: '10px', 
-              px: 4, 
-              fontWeight: 700,
-              boxShadow: `0 8px 16px ${theme.palette.info.main}40`
-            }}
-          >
-            Register Capability
-          </Button>
+        <DialogActions sx={{ p: isMobile ? 2.5 : 3.5, pt: 0 }}>
+          <Button variant="contained" color="info" onClick={handleSubmit} disabled={!formData.name || !formData.module} fullWidth size="large" sx={{ borderRadius: '14px', py: 1.5, fontWeight: 900, textTransform: 'none', boxShadow: 3 }}>Create Permission</Button>
         </DialogActions>
       </Dialog>
     </Box>

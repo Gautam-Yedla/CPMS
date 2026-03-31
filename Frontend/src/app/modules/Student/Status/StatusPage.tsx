@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { useTheme } from '@mui/material/styles';
 import { 
   ShieldCheck, 
   MapPin, 
@@ -20,6 +20,8 @@ const StatusPage: React.FC = () => {
   const theme = useTheme();
   // const dispatch = useDispatch();
   const { user } = useSelector((state: IRootState) => state.app.auth);
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const isVerySmall = useMediaQuery('(max-width: 340px)');
   
   const [loading, setLoading] = useState(true);
   const [permit, setPermit] = useState<any>(null);
@@ -109,22 +111,22 @@ const StatusPage: React.FC = () => {
         />
       )}
 
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        <header style={{ marginBottom: '2.5rem' }}>
-          <h1 style={{ 
-            fontSize: '2rem', 
-            fontWeight: 800, 
-            color: theme.palette.text.primary, 
-            marginBottom: '0.5rem',
-            letterSpacing: '-0.025em'
-          }}>Parking Status</h1>
-          <p style={{ color: theme.palette.text.secondary }}>Overview of your active parking permits and assignments.</p>
-        </header>
+      <div style={{ maxWidth: '1000px', width: '100%', margin: '0 auto', padding: '1rem 1.2rem', boxSizing: 'border-box' }}>
+        <Box sx={{ mb: 5, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 2 }}>
+          <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+            <Typography fontWeight={900} sx={{ fontSize: isVerySmall ? '1.75rem' : isMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+              Parking Status
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, opacity: 0.9 }}>
+              Overview of your active parking permits and assignments.
+            </Typography>
+          </Box>
+        </Box>
 
         {!permit ? (
       <div style={{ 
             backgroundColor: theme.palette.background.paper,
-            padding: '3rem',
+            padding: isMobile ? '1.8rem' : '3rem',
             borderRadius: '24px',
             border: theme.palette.mode === 'dark' ? `1px solid ${theme.palette.divider}` : 'none',
             display: 'flex',
@@ -185,10 +187,10 @@ const StatusPage: React.FC = () => {
           /* Pending State UI */
           <div style={{ 
             backgroundColor: theme.palette.background.paper,
-            padding: '3rem',
+            padding: isMobile ? '1.8rem' : '3rem',
             borderRadius: '24px',
             border: theme.palette.mode === 'dark' ? `1px solid ${theme.palette.divider}` : 'none',
-            display: 'flex', // Corrected display property
+            display: 'flex', 
             flexDirection: 'column',
             alignItems: 'center',
             textAlign: 'center'
@@ -222,7 +224,7 @@ const StatusPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isVerySmall ? 'repeat(1, minmax(220px, 1fr))' : 'repeat(auto-fit, minmax(280px, 1fr))', gap: isMobile ? '1rem' : '2rem' }}>
             {/* Status Card */}
             <div style={{ 
               gridColumn: '1 / -1',

@@ -1,11 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Paper, useTheme, Button, Avatar, Chip, TextField, InputAdornment, LinearProgress, CircularProgress } from '@mui/material';
+import { Box, Typography, Paper, useTheme, Button, Avatar, Chip, TextField, InputAdornment, LinearProgress, CircularProgress, useMediaQuery } from '@mui/material';
 import { ParkingCircle, Plus, Search, Car, AlertTriangle, Key } from 'lucide-react';
 import { api } from '@utils/services/api';
 import { toast } from 'react-toastify';
 
 export default function ParkingManagementPage() {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallMobile = useMediaQuery('(max-width:400px)');
+  const isTinyMobile = useMediaQuery('(max-width:340px)');
+  const isDark = theme.palette.mode === 'dark';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [zones, setZones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,51 +45,69 @@ export default function ParkingManagementPage() {
   }, [zones]);
 
   return (
-    <Box p={2} minHeight="calc(100vh - 100px)" display="flex" flexDirection="column">
+    <Box p={isTinyMobile ? 1 : 2} minHeight="calc(100vh - 100px)" display="flex" flexDirection="column">
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-        <div>
-          <Typography fontWeight="700" sx={{ fontSize: '1.875rem', color: theme.palette.text.primary, mb: 0.5 }}>
-            Parking Infrastructure
+      <Box 
+        display="flex" 
+        justifyContent="space-between" 
+        alignItems={isMobile ? 'flex-start' : 'center'} 
+        mb={isMobile ? 2 : 3} 
+        flexDirection="row"
+        gap={1}
+      >
+        <Box>
+          <Typography fontWeight="900" sx={{ fontSize: isTinyMobile ? '1.75rem' : isSmallMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+            Parking Zones
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage lots, monitor capacity, and oversee active permits.
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, opacity: 0.9 }}>
+            Live lot monitoring and capacity management
           </Typography>
-        </div>
-        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              px: 2, 
-              py: 0.75, 
-              borderRadius: '12px',
-              border: `1px solid ${theme.palette.divider}`,
-              background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
-              backdropFilter: 'blur(10px)',
-              width: '280px'
-            }}
-          >
-            <TextField 
-              variant="standard" 
-              placeholder="Search zones..." 
-              fullWidth 
-              InputProps={{ 
-                disableUnderline: true, 
-                style: { fontSize: '0.95rem' },
-                startAdornment: <InputAdornment position="start"><Search size={18} color={theme.palette.text.secondary} /></InputAdornment>
-              }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </Paper>
-          <Button 
-            variant="contained" 
-            startIcon={<Plus size={20} />}
-            sx={{ borderRadius: '12px', boxShadow: `0 8px 16px ${theme.palette.primary.main}40`, px: 3, height: '42px' }}
-          >
-            New Zone
-          </Button>
         </Box>
+        <Button 
+          variant="contained" 
+          sx={{ 
+            borderRadius: isMobile ? '50%' : '14px', 
+            boxShadow: `0 8px 16px ${theme.palette.primary.main}40`, 
+            minWidth: isMobile ? '44px' : 'auto',
+            width: isMobile ? '44px' : 'auto',
+            height: isMobile ? '44px' : '42px',
+            px: isMobile ? 0 : 3,
+            flexShrink: 0
+          }}
+          title="New Zone"
+        >
+          <Plus size={20} />
+          {!isMobile && <span style={{ marginLeft: '8px' }}>New Zone</span>}
+        </Button>
+      </Box>
+
+      {/* Search Bar */}
+      <Box mb={3}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            px: 2, 
+            py: 0.5, 
+            borderRadius: '12px',
+            border: `1px solid ${theme.palette.divider}`,
+            background: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
+            width: '100%',
+            maxWidth: isMobile ? '100%' : '320px'
+          }}
+        >
+          <TextField 
+            variant="standard" 
+            placeholder="Search zones..." 
+            fullWidth 
+            InputProps={{ 
+              disableUnderline: true, 
+              style: { fontSize: '0.875rem' },
+              startAdornment: <InputAdornment position="start"><Search size={18} color={theme.palette.text.secondary} /></InputAdornment>
+            }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </Paper>
       </Box>
 
       {/* KPI Row */}
@@ -92,45 +115,48 @@ export default function ParkingManagementPage() {
         <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
       ) : (
         <>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: isMobile ? 1.5 : 3, mb: 4 }}>
             {[
-              { label: 'Total Capacity', value: systemStats.capacity.toString(), sub: 'Spots System Wide', icon: <ParkingCircle size={24} /> },
-              { label: 'Currently Occupied', value: systemStats.occupied.toString(), sub: `${systemStats.ratio}% Full`, icon: <Car size={24} /> },
-              { label: 'Active Permits', value: '450+', sub: 'Valid passes', icon: <Key size={24} /> }
+              { label: 'Capacity', value: systemStats.capacity.toString(), sub: 'Total Spots', icon: <ParkingCircle size={isMobile ? 20 : 24} /> },
+              { label: 'Occupied', value: systemStats.occupied.toString(), sub: `${systemStats.ratio}% Full`, icon: <Car size={isMobile ? 20 : 24} /> },
+              { label: 'Permits', value: '450+', sub: 'Active passes', icon: <Key size={isMobile ? 20 : 24} /> }
             ].map((stat, idx) => (
-              <Box key={idx}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: '16px',
-                    border: `1px solid ${theme.palette.divider}`,
-                    background: theme.palette.mode === 'dark' ? 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                  }}
-                >
-                  <Avatar sx={{ bgcolor: `${theme.palette.primary.main}15`, color: theme.palette.primary.main, width: 56, height: 56 }}>
-                    {stat.icon}
-                  </Avatar>
-                  <Box>
-                    <Typography color="text.secondary" variant="body2" fontWeight="600" textTransform="uppercase" letterSpacing={1}>{stat.label}</Typography>
-                    <Typography variant="h4" fontWeight="800" color="text.primary">{stat.value}</Typography>
-                    <Typography variant="caption" color="text.secondary">{stat.sub}</Typography>
-                  </Box>
-                </Paper>
-              </Box>
+              <Paper
+                key={idx}
+                elevation={0}
+                sx={{
+                  p: isMobile ? 2 : 3,
+                  borderRadius: '16px',
+                  border: `1px solid ${theme.palette.divider}`,
+                  background: isDark ? 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: isMobile ? 1.5 : 2,
+                }}
+              >
+                <Avatar sx={{ bgcolor: `${theme.palette.primary.main}15`, color: theme.palette.primary.main, width: isMobile ? 44 : 56, height: isMobile ? 44 : 56 }}>
+                  {stat.icon}
+                </Avatar>
+                <Box minWidth={0}>
+                  <Typography color="text.secondary" variant="caption" fontWeight="700" textTransform="uppercase" letterSpacing={1}>{stat.label}</Typography>
+                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" color="text.primary">{stat.value}</Typography>
+                  {!isTinyMobile && <Typography variant="caption" color="text.secondary" noWrap>{stat.sub}</Typography>}
+                </Box>
+              </Paper>
             ))}
           </Box>
 
-          {/* Zones Masonry */}
-          <Typography variant="h6" fontWeight="700" mb={2}>Active Parking Zones</Typography>
+          {/* Zones Section */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6" fontWeight="800">Active Zones</Typography>
+            {isMobile && <Typography variant="caption" color="primary.main" fontWeight="700">{zones.length} Total</Typography>}
+          </Box>
+          
           <Box 
             sx={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-              gap: 3 
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, 
+              gap: isMobile ? 2 : 3 
             }}
           >
             {zones.filter(z => z.name.toLowerCase().includes(searchTerm.toLowerCase())).map((zone, i) => {
@@ -144,32 +170,35 @@ export default function ParkingManagementPage() {
                   key={zone.id}
                   elevation={0}
                   sx={{
-                    p: 3,
+                    p: isMobile ? 2 : 3,
                     borderRadius: '16px',
                     border: `1px solid ${theme.palette.divider}`,
                     borderTop: `4px solid ${isCritical ? theme.palette.error.main : zoneColor}`,
-                    background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.01)' : '#ffffff',
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 12px 24px ${zoneColor}20` }
+                    background: isDark ? 'rgba(255, 255, 255, 0.01)' : '#ffffff',
+                    transition: 'all 0.2s ease',
+                    '&:hover': { transform: isMobile ? 'none' : 'translateY(-4px)', boxShadow: isDark ? 'none' : `0 12px 24px ${zoneColor}20` }
                   }}
                 >
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Typography variant="h6" fontWeight="700">{zone.name}</Typography>
+                  <Box display="flex" flexDirection={isTinyMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isTinyMobile ? 'flex-start' : 'flex-start'} mb={2} gap={isTinyMobile ? 1 : 0}>
+                    <Typography variant="subtitle1" fontWeight="800" sx={{ lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zone.name}</Typography>
                     <Chip 
-                      label={isCritical ? 'Critical' : 'Active'} 
+                      label={isCritical ? 'Critical' : 'Live'} 
                       size="small" 
                       sx={{ 
-                        fontWeight: 700,
-                        bgcolor: isCritical ? `${theme.palette.error.main}20` : `${zoneColor}20`,
+                        height: '20px',
+                        fontSize: '0.625rem',
+                        fontWeight: 800,
+                        bgcolor: isCritical ? `${theme.palette.error.main}15` : `${zoneColor}15`,
                         color: isCritical ? theme.palette.error.main : zoneColor,
-                        borderRadius: '8px'
+                        borderRadius: '6px',
+                        textTransform: 'uppercase'
                       }} 
                     />
                   </Box>
                   
                   <Box display="flex" justifyContent="space-between" alignItems="flex-end" mb={1}>
-                    <Typography variant="body2" color="text.secondary" fontWeight="600">Capacity Usage</Typography>
-                    <Typography variant="body2" fontWeight="700" color={isCritical ? 'error.main' : 'text.primary'}>
+                    <Typography variant="caption" color="text.secondary" fontWeight="700">USAGE</Typography>
+                    <Typography variant="body2" fontWeight="800" color={isCritical ? 'error.main' : 'text.primary'}>
                       {zone.occupancy} / {zone.capacity}
                     </Typography>
                   </Box>
@@ -177,17 +206,17 @@ export default function ParkingManagementPage() {
                     variant="determinate" 
                     value={usagePercent} 
                     sx={{ 
-                      height: 8, 
-                      borderRadius: 4, 
-                      bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                      height: 6, 
+                      borderRadius: 3, 
+                      bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
                       '& .MuiLinearProgress-bar': { bgcolor: isCritical ? theme.palette.error.main : zoneColor }
                     }} 
                   />
                   
                   {isCritical && (
-                    <Box display="flex" alignItems="center" gap={1} mt={2} color="error.main">
-                      <AlertTriangle size={16} />
-                      <Typography variant="caption" fontWeight="600">Nearing maximum capacity</Typography>
+                    <Box display="flex" alignItems="center" gap={1} mt={1.5} color="error.main">
+                      <AlertTriangle size={14} />
+                      <Typography variant="caption" fontWeight="700">Near Capacity</Typography>
                     </Box>
                   )}
                 </Paper>

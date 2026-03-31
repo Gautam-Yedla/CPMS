@@ -5,7 +5,6 @@ import {
   Button, 
   Paper, 
   IconButton, 
-  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,12 +15,16 @@ import {
   useTheme,
   Autocomplete,
   Fade,
-  InputAdornment,
-  Divider
+  Divider,
+  Stack,
+  useMediaQuery,
+  CircularProgress,
+  Grid
 } from '@mui/material';
 import { Plus, Edit2, Trash2, Search, Shield, Key, X, Settings as SettingsIcon } from 'lucide-react';
 import { api } from '@utils/services/api';
 import { toast } from 'react-toastify';
+import ErrorBoundary from '@shared/components/ErrorBoundary';
 
 interface Role {
   id: string;
@@ -39,12 +42,25 @@ interface Permission {
 }
 
 const RolesPage: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <RolesPageContent />
+    </ErrorBoundary>
+  );
+};
+
+const RolesPageContent: React.FC = () => {
   const theme = useTheme();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [rolePermissions, setRolePermissions] = useState<Permission[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [loading, setLoading] = useState(true);
+
+  // UX Breakpoints
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isExtraSmall = useMediaQuery('(max-width:400px)');
+
   // Modals & Drawers
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -52,17 +68,30 @@ const RolesPage: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState<Role | null>(null);
 
-  // Custom Delete Confirm State
+  // Reset modalOpen to false by default
+  useEffect(() => {
+    setModalOpen(false);
+  }, []);
+
+  // Delete Confirmation
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
 
+  // Adaptive Sizing (De-bulked)
+  const controlHeight = isMobile ? '38px' : '44px';
+  const controlFontSize = isMobile ? '0.8rem' : '0.9rem';
+  const containerPadding = isExtraSmall ? 2 : isMobile ? 3 : 5;
+
   const fetchRoles = async () => {
     try {
+      setLoading(true);
       const data = await api.fetchRoles();
       setRoles(data);
     } catch (error) {
       console.error('Error fetching roles:', error);
       toast.error('Failed to load roles');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,30 +126,20 @@ const RolesPage: React.FC = () => {
     setFormData({ name: '', description: '' });
   };
 
-  const handleEmergencySeed = async () => {
-    try {
-      await api.seedDatabase();
-      toast.success('Seeding attempted. Refreshing...');
-      fetchRoles();
-      fetchAllPermissions();
-    } catch (error: any) {
-      toast.error(error.message || 'Seeding failed');
-    }
-  };
-
   const handleSubmit = async () => {
     try {
       if (editingRole) {
         await api.updateRole(editingRole.id, formData);
-        toast.success('Role updated successfully');
+        toast.success('Role updated');
       } else {
         await api.createRole(formData);
-        toast.success('Role created successfully');
+        toast.success('Role created');
       }
       fetchRoles();
       handleCloseModal();
-    } catch (error: any) {
-      toast.error(error.message || 'Operation failed');
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Operation failed');
     }
   };
 
@@ -134,22 +153,17 @@ const RolesPage: React.FC = () => {
     if (!roleToDelete) return;
     try {
       await api.deleteRole(roleToDelete);
-      toast.success('Role deleted successfully');
+      toast.success('Role removed');
       fetchRoles();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete role');
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Deletion failed');
     } finally {
       setDeleteConfirmOpen(false);
       setRoleToDelete(null);
     }
   };
 
-  const handleEditClick = (role: Role, e: React.MouseEvent) => {
-    e.stopPropagation();
-    handleOpenModal(role);
-  };
-
-  // Drawer Methods
   const handleOpenDrawer = async (role: Role) => {
     setSelectedRoleForPermissions(role);
     setDrawerOpen(true);
@@ -157,7 +171,7 @@ const RolesPage: React.FC = () => {
       const data = await api.fetchRolePermissions(role.id);
       setRolePermissions(data);
     } catch (error) {
-      toast.error('Failed to load assigned permissions');
+      toast.error('Failed to load permissions');
     }
   };
 
@@ -165,11 +179,12 @@ const RolesPage: React.FC = () => {
     if (!selectedRoleForPermissions) return;
     try {
       await api.assignRolePermission(selectedRoleForPermissions.id, permissionId);
-      toast.success('Permission assigned');
+      toast.success('Permission added');
       const data = await api.fetchRolePermissions(selectedRoleForPermissions.id);
       setRolePermissions(data);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to assign permission');
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Assignment failed');
     }
   };
 
@@ -181,7 +196,7 @@ const RolesPage: React.FC = () => {
       const data = await api.fetchRolePermissions(selectedRoleForPermissions.id);
       setRolePermissions(data);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to remove permission');
+      toast.error(error.message || 'Removal failed');
     }
   };
 
@@ -190,10 +205,8 @@ const RolesPage: React.FC = () => {
     role.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Unassigned permissions for the autocomplete dropdown
   const unassignedPermissions = permissions.filter(p => !rolePermissions.find(rp => rp.id === p.id));
 
-  // Determine accent color via simple hash
   const getAccentColor = (name: string) => {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
     let hash = 0;
@@ -204,414 +217,252 @@ const RolesPage: React.FC = () => {
   };
 
   return (
-    <Box p={2}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <div>
-          <Typography fontWeight="700" sx={{ fontSize: '1.875rem', color: theme.palette.text.primary, mb: 0.5 }}>
-            Role Archetypes
+    <Box p={containerPadding} display="flex" flexDirection="column" gap={isMobile ? 3 : 5}>
+      
+      {/* Search and Action Header */}
+      <Box display="flex" flexDirection={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'flex-start' : 'center'} gap={4}>
+        <Box>
+          <Typography fontWeight="900" sx={{ fontSize: isExtraSmall ? '1.75rem' : isMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+            Auth & Roles
           </Typography>
-          <Typography variant="body1" color="text.secondary">Architect the permissions and capabilities of system actors.</Typography>
-        </div>
-        <Box display="flex" gap={2} alignItems="center">
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, opacity: 0.9 }}>
+            Manage user permissions and access levels
+          </Typography>
+        </Box>
+        
+        <Stack direction={isMobile ? 'column' : 'row'} spacing={2} width={isMobile ? '100%' : 'auto'} alignItems="center">
           <Paper 
-            elevation={0} 
-            sx={{ 
-              px: 2, 
-              py: 0.75, 
-              borderRadius: '12px',
-              border: `1px solid ${theme.palette.divider}`,
-              background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
-              backdropFilter: 'blur(10px)',
-              width: '280px'
-            }}
-          >
-            <TextField 
-              variant="standard" 
-              placeholder="Search archetypes..." 
-              fullWidth 
-              InputProps={{ 
-                disableUnderline: true, 
-                style: { fontSize: '0.95rem' },
-                startAdornment: <InputAdornment position="start"><Search size={18} color={theme.palette.text.secondary} /></InputAdornment>
+              elevation={0} 
+              sx={{ 
+                px: 2, borderRadius: '12px', flex: isMobile ? 'none' : 1,
+                width: isMobile ? '100%' : '300px',
+                border: `1px solid ${theme.palette.divider}`,
+                background: theme.palette.background.paper,
+                display: 'flex', alignItems: 'center', height: controlHeight
               }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          >
+              <Search size={18} color={theme.palette.text.secondary} />
+              <TextField 
+                variant="standard" placeholder="Search roles..." fullWidth sx={{ ml: 1.5 }}
+                InputProps={{ disableUnderline: true, style: { fontSize: controlFontSize, fontWeight: 600 } }}
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              />
           </Paper>
+
           <Button 
             variant="contained" 
-            size="large"
-            startIcon={<Plus size={20} />}
+            size="medium"
             onClick={() => handleOpenModal()}
-            sx={{ borderRadius: '12px', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.25)', px: 3, height: '42px' }}
+            startIcon={<Plus size={18} />}
+            sx={{ borderRadius: '12px', fontWeight: 900, height: controlHeight, px: 3, textTransform: 'none', width: isMobile ? '100%' : 'auto' }}
           >
-            Create Role
+            Add Role
           </Button>
-        </Box>
+        </Stack>
       </Box>
 
-      {/* Masonry Grid of Glassmorphism Cards */}
-      <Box 
-        sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', 
-          gap: 3 
-        }}
-      >
-        {filteredRoles.map(role => {
-          const accentColor = role.is_system ? '#ef4444' : getAccentColor(role.name);
-          return (
-            <Fade in={true} key={role.id}>
-              <Paper
-                onClick={() => handleOpenDrawer(role)}
-                sx={{
-                  position: 'relative',
-                  p: 3,
-                  borderRadius: '16px',
-                  background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.8)',
-                  backdropFilter: 'blur(20px)',
-                  border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minHeight: '200px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                  '&:hover': {
-                    transform: 'translateY(-6px)',
-                    boxShadow: theme.palette.mode === 'dark' 
-                      ? `0 12px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px ${accentColor}40`
-                      : `0 12px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px ${accentColor}40`,
-                    '& .hover-bg': {
-                      opacity: 0.05
-                    }
-                  }
-                }}
-              >
-                {/* Accent Glow Background */}
-                <Box 
-                  className="hover-bg"
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    right: 0,
-                    width: '150px',
-                    height: '150px',
-                    background: `radial-gradient(circle, ${accentColor} 0%, transparent 70%)`,
-                    opacity: 0.02,
-                    transition: 'opacity 0.3s',
-                    transform: 'translate(30%, -30%)',
-                    zIndex: 0
-                  }}
-                />
-
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start" zIndex={1}>
-                  <Box display="flex" alignItems="center" gap={1.5}>
-                    <Box 
-                      sx={{ 
-                        width: 40, 
-                        height: 40, 
-                        borderRadius: '10px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        background: `${accentColor}1A`,
-                        color: accentColor
+      {/* Roles Grid */}
+      <Box flex={1}>
+        {loading ? (
+          <Box display="flex" justifyContent="center" py={12}><CircularProgress thickness={5} size={70} /></Box>
+        ) : filteredRoles.length === 0 ? (
+          <Box textAlign="center" py={15} sx={{ opacity: 0.3 }}>
+            <Shield size={100} strokeWidth={1} style={{ marginBottom: 20 }} />
+            <Typography variant="h4" fontWeight="800">No Roles Found</Typography>
+            <Typography variant="body1">Create a role to start managing permissions.</Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={isMobile ? 2 : 3}>
+            {filteredRoles.map(role => {
+              const accentColor = role.is_system ? theme.palette.primary.main : getAccentColor(role.name);
+              return (
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={role.id}>
+                  <Fade in={true}>
+                    <Paper
+                      onClick={() => handleOpenDrawer(role)}
+                      sx={{
+                        p: 3,
+                        borderRadius: '24px',
+                        border: `2px solid ${theme.palette.divider}`,
+                        background: theme.palette.background.paper,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        '&:active': { transform: 'scale(0.98)' }
                       }}
                     >
-                      <Shield size={22} />
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" fontWeight="700" sx={{ lineHeight: 1.2 }}>
-                        {role.name}
+                      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                        <Box sx={{ p: 1.25, borderRadius: '12px', background: `${accentColor}10`, color: accentColor, display: 'flex' }}>
+                          <Shield size={20} />
+                        </Box>
+                        <Box display="flex" gap={0.5}>
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenModal(role); }} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: '8px' }}>
+                            <Edit2 size={14} />
+                          </IconButton>
+                          {!role.is_system && (
+                            <IconButton size="small" color="error" onClick={(e) => triggerDelete(role.id, e)} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: '8px' }}>
+                              <Trash2 size={14} />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <Typography variant="body1" fontWeight="900" sx={{ mb: 0.5, lineHeight: 1.1 }}>{role.name}</Typography>
+                      <Chip label={role.is_system ? 'System' : 'Custom'} size="small" sx={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '0.6rem', mb: 2, height: 20, width: 'fit-content', bgcolor: role.is_system ? `${theme.palette.primary.main}10` : 'rgba(0,0,0,0.04)' }} />
+                      
+                      <Typography variant="caption" color="text.secondary" sx={{ flex: 1, fontWeight: 500, lineHeight: 1.5, mb: 3 }}>
+                        {role.description || 'No description provided.'}
                       </Typography>
-                      <Chip 
-                        label={role.is_system ? 'System' : 'Custom'} 
-                        size="small" 
-                        sx={{ 
-                          height: '20px', 
-                          fontSize: '0.65rem', 
-                          mt: 0.5,
-                          fontWeight: 700,
-                          background: role.is_system ? `${accentColor}1A` : `${theme.palette.text.disabled}1A`,
-                          color: role.is_system ? accentColor : theme.palette.text.secondary,
-                        }} 
-                      />
-                    </Box>
-                  </Box>
-                  <Box display="flex" gap={0.5} ml={2}>
-                    <Tooltip title="Edit Role">
-                      <IconButton size="small" onClick={(e) => handleEditClick(role, e)} sx={{ background: 'rgba(128,128,128,0.05)' }}>
-                        <Edit2 size={14} />
-                      </IconButton>
-                    </Tooltip>
-                    {!role.is_system && (
-                      <Tooltip title="Delete Role">
-                        <IconButton size="small" color="error" onClick={(e) => triggerDelete(role.id, e)} sx={{ background: 'rgba(239, 68, 68, 0.05)' }}>
-                          <Trash2 size={14} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
-                </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 3, mb: 3, flex: 1, zIndex: 1, lineHeight: 1.6 }}>
-                  {role.description || 'No description provided for this role archetype.'}
-                </Typography>
-
-                <Box display="flex" alignItems="center" justifyContent="space-between" zIndex={1}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: accentColor, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <SettingsIcon size={14} /> View Map
-                  </Typography>
-                </Box>
-              </Paper>
-            </Fade>
-          );
-        })}
-
-        {filteredRoles.length === 0 && (
-          <Box gridColumn="1 / -1" textAlign="center" py={12}>
-            <Box sx={{ mb: 2, opacity: 0.15 }}>
-              <Shield size={80} />
-            </Box>
-            <Typography variant="h5" fontWeight="800" gutterBottom>No Authorization Data</Typography>
-            <Typography color="text.secondary" sx={{ mb: 4, maxWidth: '400px', mx: 'auto' }}>
-                Structural roles and capabilities are missing. Initialize the system to restore default patterns.
-            </Typography>
-            <Button 
-                variant="outlined" 
-                size="large" 
-                onClick={handleEmergencySeed}
-                sx={{ borderRadius: '12px', px: 4 }}
-            >
-                Initialize System Defaults
-            </Button>
-          </Box>
+                      <Box sx={{ pt: 1.5, borderTop: `1px solid ${theme.palette.divider}`, mt: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SettingsIcon size={12} style={{ opacity: 0.5 }} />
+                        <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.04em' }}>Permissions</Typography>
+                      </Box>
+                    </Paper>
+                  </Fade>
+                </Grid>
+              );
+            })}
+          </Grid>
         )}
       </Box>
 
-      {/* Permissions Drawer */}
+      {/* Permissions Side Drawer */}
       <Drawer
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{
-          sx: {
-            width: { xs: '100%', sm: '400px', md: '500px' },
-            background: theme.palette.background.default,
-            p: 0
-          }
-        }}
+        PaperProps={{ sx: { width: isMobile ? '100%' : '440px', background: theme.palette.background.default, borderLeft: `1px solid ${theme.palette.divider}` } }}
       >
         {selectedRoleForPermissions && (
           <Box height="100%" display="flex" flexDirection="column">
-            {/* Drawer Header */}
-            <Box 
-              p={4} 
-              sx={{ 
-                background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.default} 100%)`,
-                borderBottom: `1px solid ${theme.palette.divider}`
-              }}
-            >
+            <Box p={isMobile ? 3 : 4} borderBottom={`1px solid ${theme.palette.divider}`} bgcolor={theme.palette.background.paper}>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                <Box display="flex" alignItems="center" gap={1.5}>
-                  <Box sx={{ p: 1, borderRadius: '8px', background: `${theme.palette.primary.main}1A`, color: theme.palette.primary.main }}>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box sx={{ p: 1.25, borderRadius: '12px', background: `${theme.palette.primary.main}10`, color: theme.palette.primary.main }}>
                     <Key size={24} />
                   </Box>
                   <Box>
-                    <Typography variant="h5" fontWeight="800">{selectedRoleForPermissions.name}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
-                      Permission Mapping
-                    </Typography>
+                    <Typography variant="h6" fontWeight="900">{selectedRoleForPermissions.name}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 900, fontSize: '0.65rem' }}>Assignment Map</Typography>
                   </Box>
                 </Box>
-                <IconButton onClick={() => setDrawerOpen(false)}>
-                  <X />
+                <IconButton size="small" onClick={() => setDrawerOpen(false)} sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
+                  <X size={18} />
                 </IconButton>
               </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Authorize this role to perform explicit capabilities. System roles represent core archetypes.
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, lineHeight: 1.4, display: 'block' }}>
+                Control granular permissions for this role. System defaults are read-only.
               </Typography>
             </Box>
 
-            {/* Assignment Form */}
-            <Box p={4} pb={2}>
-              <Typography variant="subtitle2" fontWeight="700" mb={1.5} color="text.secondary">GRANT NEW PERMISSION</Typography>
-              <Autocomplete
-                options={unassignedPermissions}
-                getOptionLabel={(option) => option.name}
-                renderInput={(params) => <TextField {...params} label="Search capabilities..." variant="outlined" />}
-                onChange={(_, newValue) => {
-                  if (newValue) {
-                    handleAssignPermission(newValue.id);
-                  }
-                }}
-                disabled={selectedRoleForPermissions.is_system}
-                value={null}
-              />
-              {selectedRoleForPermissions.is_system && (
-                <Typography variant="caption" color="warning.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
-                  <Shield size={12} /> System mappings are immutable
-                </Typography>
-              )}
-            </Box>
+            <Box p={isMobile ? 3 : 4} flex={1} sx={{ overflowY: 'auto' }}>
+              <Box mb={4}>
+                <Typography variant="caption" fontWeight="900" mb={1} color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add Permission</Typography>
+                <Autocomplete
+                  options={unassignedPermissions}
+                  getOptionLabel={(option) => option.name}
+                  disabled={selectedRoleForPermissions.is_system}
+                  renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Search capabilities..." sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', bgcolor: theme.palette.background.paper } }} />}
+                  onChange={(_, newValue) => newValue && handleAssignPermission(newValue.id)}
+                  value={null}
+                />
+                {selectedRoleForPermissions.is_system && (
+                  <Typography variant="caption" color="warning.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, fontWeight: 700, fontSize: '0.65rem' }}>
+                    <Shield size={10} /> System roles have locked permissions
+                  </Typography>
+                )}
+              </Box>
 
-            <Divider />
+              <Divider sx={{ mb: 3 }} />
 
-            {/* List of current permissions */}
-            <Box p={4} flex={1} overflow="auto">
-               <Typography variant="subtitle2" fontWeight="700" mb={3} color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  AUTHORIZED CAPABILITIES <Chip label={rolePermissions.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
-               </Typography>
-               <Box display="flex" flexDirection="column" gap={2}>
-                 {rolePermissions.length === 0 ? (
-                    <Box textAlign="center" py={4} sx={{ opacity: 0.5 }}>
-                      <Key size={32} style={{ marginBottom: '8px' }} />
-                      <Typography>No permissions authorized</Typography>
-                    </Box>
-                 ) : (
-                    rolePermissions.map(rp => (
-                      <Box 
-                        key={rp.id}
-                        sx={{
-                          p: 2,
-                          borderRadius: '12px',
-                          border: `1px solid ${theme.palette.divider}`,
-                          background: theme.palette.background.paper,
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          gap: 2,
-                          transition: 'background 0.2s',
-                          '&:hover': { background: theme.palette.action.hover }
-                        }}
-                      >
-                        <Box>
-                          <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                            <Typography variant="body2" fontWeight="700">{rp.name}</Typography>
-                            <Chip label={rp.module} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
-                          </Box>
-                          <Typography variant="caption" color="text.secondary">{rp.description}</Typography>
-                        </Box>
-                        {!selectedRoleForPermissions.is_system && (
-                          <IconButton 
-                            size="small" 
-                            color="error"
-                            onClick={() => handleRemovePermission(rp.id)}
-                            sx={{ mt: -0.5, mr: -0.5 }}
-                          >
-                            <X size={16} />
-                          </IconButton>
-                        )}
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                 <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned List</Typography>
+                 <Chip label={rolePermissions.length} size="small" sx={{ fontWeight: 900, borderRadius: '6px', height: 20, fontSize: '0.65rem' }} />
+              </Box>
+
+              <Stack spacing={1.5}>
+                {rolePermissions.map(rp => (
+                  <Paper 
+                    key={rp.id}
+                    elevation={0}
+                    sx={{ p: 2, borderRadius: '16px', border: `1px solid ${theme.palette.divider}`, background: theme.palette.background.paper, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={0.25}>
+                        <Typography variant="caption" fontWeight="900">{rp.name}</Typography>
+                        <Chip label={rp.module} size="small" sx={{ height: 16, fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase' }} />
                       </Box>
-                    ))
-                 )}
-               </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.65rem' }}>{rp.description}</Typography>
+                    </Box>
+                    {!selectedRoleForPermissions.is_system && (
+                      <IconButton size="small" color="error" onClick={() => handleRemovePermission(rp.id)} sx={{ bgcolor: `${theme.palette.error.main}08`, ml: 1 }}>
+                        <X size={14} />
+                      </IconButton>
+                    )}
+                  </Paper>
+                ))}
+              </Stack>
             </Box>
           </Box>
         )}
       </Drawer>
 
-      <Dialog 
-        open={modalOpen} 
-        onClose={handleCloseModal} 
-        maxWidth="sm" 
-        fullWidth 
-        TransitionComponent={Fade}
-        PaperProps={{ 
-          sx: { 
-            borderRadius: '20px',
-            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            backgroundImage: 'none',
-            boxShadow: theme.palette.mode === 'dark' ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.1)'
-          } 
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem', pb: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ p: 1, borderRadius: '8px', background: `${theme.palette.primary.main}1A`, color: theme.palette.primary.main, display: 'flex' }}>
-            <Shield size={20} />
-          </Box>
-          {editingRole ? 'Edit Role Archetype' : 'Define New Archetype'}
+      {/* Refined Add/Edit Role Dialog (De-bulked) */}
+      <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="xs" fullWidth TransitionComponent={Fade} PaperProps={{ sx: { borderRadius: '24px' } }}>
+        <DialogTitle sx={{ fontWeight: 900, p: 0 }}>
+           <Box sx={{ p: isMobile ? 2.5 : 3, bgcolor: `${theme.palette.primary.main}08`, color: theme.palette.primary.main, borderRadius: '24px 24px 0 0', display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'white', display: 'flex', boxShadow: theme.shadows[2] }}><Shield size={18} /></Box>
+              <Box>
+                <Typography variant="body1" fontWeight="900">{editingRole ? 'Edit Role' : 'Create Role'}</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 700, fontSize: '0.65rem' }}>Adjust access levels</Typography>
+              </Box>
+              <IconButton size="small" onClick={handleCloseModal} sx={{ ml: 'auto', bgcolor: theme.palette.mode==='dark'?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.05)', color: 'inherit' }}><X size={16} /></IconButton>
+           </Box>
         </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            {editingRole ? 'Update the details for this security role.' : 'Create a new structural role to assign permissions to users.'}
-          </Typography>
-          <Box display="flex" flexDirection="column" gap={2.5}>
-            <TextField
-              label="Role Designation"
-              variant="filled"
-              fullWidth
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-            />
-            <TextField
-              label="Functional Description"
-              variant="filled"
-              fullWidth
-              multiline
-              rows={4}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              InputProps={{ disableUnderline: true, sx: { borderRadius: '12px' } }}
-            />
-          </Box>
+        <DialogContent sx={{ p: isMobile ? 2.5 : 3.5, pt: isMobile ? 3 : 4 }}>
+          <Stack spacing={3}>
+            <Box>
+               <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1.5, mb: 0.75, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem' }}>Role Designation</Typography>
+               <TextField variant="filled" fullWidth value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} InputProps={{ disableUnderline: true, sx: { borderRadius: '14px', fontWeight: 700, height: 44 } }} />
+            </Box>
+            <Box>
+               <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ ml: 1.5, mb: 0.75, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem' }}>Functional Scope</Typography>
+               <TextField variant="filled" fullWidth multiline rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} InputProps={{ disableUnderline: true, sx: { borderRadius: '14px', fontWeight: 700, p: 1.5 } }} />
+            </Box>
+          </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 1 }}>
-          <Button onClick={handleCloseModal} color="inherit" sx={{ borderRadius: '10px', px: 3, fontWeight: 600 }}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            onClick={handleSubmit} 
-            disabled={!formData.name} 
-            sx={{ 
-              borderRadius: '10px', 
-              px: 4, 
-              fontWeight: 700,
-              boxShadow: `0 8px 16px ${theme.palette.primary.main}40`
-            }}
-          >
-            {editingRole ? 'Commit Updates' : 'Generate'}
-          </Button>
+        <DialogActions sx={{ p: isMobile ? 2.5 : 3.5, pt: 0 }}>
+          <Button onClick={handleSubmit} disabled={!formData.name} fullWidth variant="contained" size="large" sx={{ borderRadius: '14px', py: 1.5, fontWeight: 900, textTransform: 'none', boxShadow: 3 }}>{editingRole ? 'Save Updates' : 'Commit Role'}</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Modal */}
-      <Dialog 
-        open={deleteConfirmOpen} 
-        onClose={() => setDeleteConfirmOpen(false)}
-        TransitionComponent={Fade}
-        PaperProps={{ 
-          sx: { 
-            borderRadius: '20px', 
-            p: 1,
-            maxWidth: '400px',
-            textAlign: 'center'
-          } 
-        }}
-      >
-        <DialogContent sx={{ pt: 4, pb: 2 }}>
-          <Box display="flex" justifyContent="center" mb={2}>
-            <Box sx={{ p: 2, borderRadius: '50%', background: `${theme.palette.error.main}1A`, color: theme.palette.error.main }}>
-              <Trash2 size={40} />
+      {/* Refined Delete Confirmation Dialog (De-bulked) */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} TransitionComponent={Fade} PaperProps={{ sx: { borderRadius: '24px', p: 0.5, maxWidth: '380px', textAlign: 'center' } }}>
+        <DialogContent sx={{ pt: isMobile ? 4 : 5, pb: 3 }}>
+          <Box display="flex" justifyContent="center" mb={3}>
+            <Box sx={{ p: 2, borderRadius: '50%', background: `${theme.palette.error.main}10`, color: theme.palette.error.main, animation: 'pulse 2s infinite ease-in-out' }}>
+              <Trash2 size={32} />
             </Box>
           </Box>
-          <Typography variant="h6" fontWeight="700" mb={1}>Delete Archetype?</Typography>
-          <Typography variant="body2" color="text.secondary">
-            This action cannot be undone. Any users assigned to this role will lose its associated permissions.
+          <Typography variant="h6" fontWeight="900" sx={{ mb: 1.5 }}>Permanently Remove?</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, px: 2, display: 'block', lineHeight: 1.5 }}>
+            This will revoke access for all assigned users. This action cannot be reversed.
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 3, gap: 1 }}>
-          <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" sx={{ borderRadius: '10px', px: 3, fontWeight: 600 }}>Cancel</Button>
-          <Button 
-            onClick={confirmDelete} 
-            variant="contained" 
-            color="error" 
-            sx={{ borderRadius: '10px', px: 4, fontWeight: 700, boxShadow: `0 8px 16px ${theme.palette.error.main}40` }}
-          >
-            Yes, Delete
-          </Button>
+        <DialogActions sx={{ justifyContent: 'center', pb: 4, px: 3, gap: 1.5 }}>
+          <Button onClick={() => setDeleteConfirmOpen(false)} fullWidth variant="outlined" color="inherit" size="medium" sx={{ borderRadius: '12px', fontWeight: 800, borderWidth: 2 }}>Cancel</Button>
+          <Button onClick={confirmDelete} fullWidth variant="contained" color="error" size="medium" sx={{ borderRadius: '12px', fontWeight: 900, boxShadow: 4 }}>Delete Role</Button>
         </DialogActions>
+        <style>{`
+          @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+          }
+        `}</style>
       </Dialog>
     </Box>
   );

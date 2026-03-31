@@ -7,6 +7,11 @@ import {
   SET_THEME_MODE,
 } from './authActions';
 
+export interface IPermission {
+  name: string;
+  [key: string]: unknown;
+}
+
 export interface IUserState {
   id: string;
   email: string;
@@ -17,7 +22,7 @@ export interface IUserState {
   vehicle_number?: string;
   vehicle_type?: string;
   avatar_url?: string;
-  permissions?: any[];
+  permissions?: IPermission[];
   created_at?: string;
 }
 
@@ -37,7 +42,14 @@ const initialState: IAuthState = {
   theme: 'system',
 };
 
-export const authReducer = (state = initialState, action: any): IAuthState => {
+interface IAuthAction {
+  type: string;
+  data?: IUserState;
+  message?: string;
+  mode?: 'light' | 'dark' | 'system';
+}
+
+export const authReducer = (state = initialState, action: IAuthAction): IAuthState => {
   switch (action.type) {
     case `${authEventCategory}/${REQUEST_PENDING}`:
       return {
@@ -50,14 +62,14 @@ export const authReducer = (state = initialState, action: any): IAuthState => {
         ...state,
         isLoggedIn: true,
         loading: false,
-        user: action.data,
+        user: action.data || null,
       };
     case `${authEventCategory}/${REQUEST_REJECTED}`:
       return {
         ...state,
         loading: false,
         isLoggedIn: false,
-        error: action.message,
+        error: action.message || null,
       };
     case `${authEventCategory}/${CLEAR_AUTH_ERROR}`:
       return {
@@ -67,12 +79,12 @@ export const authReducer = (state = initialState, action: any): IAuthState => {
     case `${authEventCategory}/RECEIVE_USER_DATA`:
       return {
         ...state,
-        user: action.data,
+        user: action.data || null,
       };
     case `${authEventCategory}/${SET_THEME_MODE}`:
       return {
         ...state,
-        theme: action.mode,
+        theme: action.mode || 'light',
       };
     case `${authEventCategory}/LOG_OUT`:
       return initialState;

@@ -5,6 +5,7 @@ import LoginPage from '@modules/Auth/LoginPage';
 import StudentRegisterPage from '@modules/Auth/StudentRegisterPage';
 import FacultyRegisterPage from '@modules/Auth/FacultyRegisterPage';
 import { IRootState } from '@app/appReducer';
+import { IPermission } from '@modules/Auth/authReducer';
 import { Lending } from '@app/Layout/Lending';
 import AppLayout from '@app/Layout/AppLayout';
 import StudentDashboard from '@modules/Student/Dashboard/StudentDashboardWrapper';
@@ -57,7 +58,7 @@ const PermissionRoute = ({ permission }: { permission: string }) => {
   const hasDefaultAccess = (userRole === 'faculty' && permission.startsWith('zones.')) || 
                            (userRole === 'student' && (permission === 'vehicles.manage' || permission === 'history.view'));
 
-  const hasPermission = user?.permissions?.some((p: any) => p.name === permission);
+  const hasPermission = user?.permissions?.some((p: IPermission) => p.name === permission);
   
   return isAdmin || hasPermission || hasDefaultAccess ? <Outlet /> : <Navigate to="/" replace />;
 };

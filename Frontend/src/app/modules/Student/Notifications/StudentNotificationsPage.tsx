@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
-import { Box } from '@mui/material';
+import { Box, Typography, useMediaQuery } from '@mui/material';
 import { 
   Bell, 
   CheckCheck, 
@@ -18,7 +18,11 @@ import { IRootState } from '@app/appReducer';
 
 const StudentNotificationsPage: React.FC = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallMobile = useMediaQuery('(max-width:400px)');
+  const isTinyMobile = useMediaQuery('(max-width:340px)');
   const isDark = theme.palette.mode === 'dark';
+
   const { user } = useSelector((state: IRootState) => state.app.auth);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,10 +95,10 @@ const StudentNotificationsPage: React.FC = () => {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'permit': return <CheckCheck size={20} color={theme.palette.success.main} />;
-      case 'security': return <AlertTriangle size={20} color={theme.palette.error.main} />;
-      case 'system': return <Info size={20} color={theme.palette.info.main} />;
-      default: return <Bell size={20} color={theme.palette.primary.main} />;
+      case 'permit': return <CheckCheck size={isMobile ? 18 : 20} color={theme.palette.success.main} />;
+      case 'security': return <AlertTriangle size={isMobile ? 18 : 20} color={theme.palette.error.main} />;
+      case 'system': return <Info size={isMobile ? 18 : 20} color={theme.palette.info.main} />;
+      default: return <Bell size={isMobile ? 18 : 20} color={theme.palette.primary.main} />;
     }
   };
 
@@ -117,25 +121,23 @@ const StudentNotificationsPage: React.FC = () => {
         />
       )}
 
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: isTinyMobile ? '0 0.25rem' : '0' }}>
         <header style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: '2rem' 
+          alignItems: isMobile ? 'flex-start' : 'center', 
+          marginBottom: isMobile ? '1.5rem' : '2.5rem',
+          flexDirection: 'row',
+          gap: '1rem'
         }}>
-          <div>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                <Zap size={24} color={theme.palette.warning.main} />
-                <h1 style={{ 
-                fontSize: '2rem', 
-                fontWeight: 800, 
-                color: theme.palette.text.primary, 
-                margin: 0,
-                letterSpacing: '-0.025em'
-                }}>Notifications</h1>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <Box display="flex" alignItems="center" gap={1} mb={0.25}>
+                <Zap size={isMobile ? 20 : 24} color={theme.palette.warning.main} />
+            <Typography fontWeight="900" sx={{ fontSize: isTinyMobile ? '1.75rem' : isSmallMobile ? '2.25rem' : '3.25rem', letterSpacing: '-0.03em', lineHeight: 1.1, color: theme.palette.text.primary, mb: 1 }}>
+              Notifications
+            </Typography>
             </Box>
-            <p style={{ color: theme.palette.text.secondary }}>Stay updated with real-time alerts and campus status.</p>
+            <p style={{ color: theme.palette.text.secondary, fontSize: '0.8125rem' }}>Stay updated with real-time alerts.</p>
           </div>
           <button 
             onClick={handleMarkAllRead}
@@ -143,29 +145,37 @@ const StudentNotificationsPage: React.FC = () => {
             style={{
               backgroundColor: theme.palette.background.paper,
               color: theme.palette.text.primary,
-              border: `1px solid ${theme.palette.divider}`,
-              padding: '0.75rem 1.25rem',
-              borderRadius: '12px',
-              fontWeight: 600,
+              border: `1.5px solid ${theme.palette.divider}`,
+              padding: isMobile ? '0.75rem' : '0.75rem 1.25rem',
+              borderRadius: isMobile ? '50%' : '14px',
+              fontWeight: 700,
+              fontSize: '0.875rem',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '0.5rem',
               cursor: notifications.every(n => n.is_read) ? 'default' : 'pointer',
               opacity: notifications.every(n => n.is_read) ? 0.5 : 1,
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              width: isMobile ? '44px' : 'auto',
+              height: isMobile ? '44px' : 'auto',
+              flexShrink: 0
             }}
+            title="Mark all read"
           >
-            <CheckCircle size={18} />
-            Mark all read
+            <CheckCircle size={isMobile ? 22 : 18} />
+            {!isMobile && 'Mark all read'}
           </button>
         </header>
 
         {/* Filter Tabs */}
         <div style={{ 
           display: 'flex', 
-          gap: '1rem', 
-          marginBottom: '2rem',
-          borderBottom: `1px solid ${theme.palette.divider}` 
+          gap: isMobile ? '0.5rem' : '1rem', 
+          marginBottom: isMobile ? '1.5rem' : '2rem',
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          overflowX: 'auto',
+          scrollbarWidth: 'none'
         }}>
           <button 
             onClick={() => setFilter('all')}
@@ -175,9 +185,10 @@ const StudentNotificationsPage: React.FC = () => {
               border: 'none',
               borderBottom: `2px solid ${filter === 'all' ? theme.palette.primary.main : 'transparent'}`,
               color: filter === 'all' ? theme.palette.primary.main : theme.palette.text.secondary,
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
-              marginBottom: '-1px'
+              marginBottom: '-1px',
+              fontSize: isMobile ? '0.875rem' : '1rem'
             }}
           >
             All
@@ -190,12 +201,13 @@ const StudentNotificationsPage: React.FC = () => {
               border: 'none',
               borderBottom: `2px solid ${filter === 'unread' ? theme.palette.primary.main : 'transparent'}`,
               color: filter === 'unread' ? theme.palette.primary.main : theme.palette.text.secondary,
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
               marginBottom: '-1px',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              fontSize: isMobile ? '0.875rem' : '1rem'
             }}
           >
             Unread
@@ -203,9 +215,10 @@ const StudentNotificationsPage: React.FC = () => {
               <span style={{ 
                 backgroundColor: theme.palette.primary.main, 
                 color: 'white', 
-                fontSize: '0.75rem', 
+                fontSize: '0.7rem', 
                 padding: '2px 6px', 
-                borderRadius: '10px' 
+                borderRadius: '8px',
+                fontWeight: 800
               }}>
                 {notifications.filter(n => !n.is_read).length}
               </span>
@@ -214,20 +227,20 @@ const StudentNotificationsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '4rem' }}>Loading notifications...</div>
+          <div style={{ textAlign: 'center', padding: '4rem', color: theme.palette.text.secondary }}>Loading notifications...</div>
         ) : filteredNotifications.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
-            padding: '4rem 2rem', 
+            padding: isMobile ? '3rem 1.5rem' : '4rem 2rem', 
             backgroundColor: theme.palette.background.paper,
             borderRadius: '24px',
-            border: `1px dashed ${theme.palette.divider}`
+            border: isDark ? `1px solid ${theme.palette.divider}` : `1px dashed ${theme.palette.divider}`
           }}>
             <div style={{ 
               width: '60px', 
               height: '60px', 
               borderRadius: '50%', 
-              backgroundColor: theme.palette.action.hover, 
+              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center', 
@@ -236,8 +249,8 @@ const StudentNotificationsPage: React.FC = () => {
             }}>
               <Bell size={24} />
             </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>All caught up!</h3>
-            <p style={{ color: theme.palette.text.secondary }}>You have no {filter === 'unread' ? 'unread' : ''} notifications.</p>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>All caught up!</h3>
+            <p style={{ color: theme.palette.text.secondary, fontSize: '0.875rem' }}>You have no {filter === 'unread' ? 'unread' : ''} messages.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -247,35 +260,37 @@ const StudentNotificationsPage: React.FC = () => {
                 onClick={!notif.is_read ? (e) => handleMarkRead(notif.id, e) : undefined}
                 style={{
                   backgroundColor: theme.palette.background.paper,
-                  padding: '1.5rem',
-                  borderRadius: '20px',
+                  padding: isMobile ? '1rem' : '1.5rem',
+                  borderRadius: '24px',
                   display: 'flex',
-                  gap: '1.25rem',
+                  gap: isMobile ? '1rem' : '1.5rem',
                   border: isDark ? `1px solid ${theme.palette.divider}` : 'none',
-                  boxShadow: !isDark ? '0 4px 6px -1px rgba(0,0,0,0.02)' : 'none',
+                  boxShadow: !isDark ? '0 10px 15px -3px rgba(0,0,0,0.03)' : 'none',
                   position: 'relative',
                   cursor: !notif.is_read ? 'pointer' : 'default',
                   opacity: notif.is_read ? 0.7 : 1,
-                  transition: 'transform 0.2s'
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  minWidth: 0
                 }}
                 className={!notif.is_read ? 'hover-lift' : ''}
               >
                 {!notif.is_read && (
                   <div style={{
                     position: 'absolute',
-                    top: '1.5rem',
-                    right: '1.5rem',
-                    width: '10px',
-                    height: '10px',
+                    top: isMobile ? '1rem' : '1.5rem',
+                    right: isMobile ? '1rem' : '1.5rem',
+                    width: '8px',
+                    height: '8px',
                     borderRadius: '50%',
-                    backgroundColor: theme.palette.primary.main
+                    backgroundColor: theme.palette.primary.main,
+                    boxShadow: `0 0 10px ${theme.palette.primary.main}`
                   }} />
                 )}
 
                 <div style={{
                   flexShrink: 0,
-                  width: '50px',
-                  height: '50px',
+                  width: isMobile ? '44px' : '56px',
+                  height: isMobile ? '44px' : '56px',
                   borderRadius: '16px',
                   backgroundColor: getIconBg(notif.type),
                   display: 'flex',
@@ -285,15 +300,15 @@ const StudentNotificationsPage: React.FC = () => {
                   {getIcon(notif.type)}
                 </div>
 
-                <div style={{ flex: 1, paddingRight: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{notif.title}</h3>
-                    <span style={{ fontSize: '0.75rem', color: theme.palette.text.disabled, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', flexDirection: isSmallMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isSmallMobile ? 'flex-start' : 'center', marginBottom: '0.25rem', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 800, color: theme.palette.text.primary, lineHeight: 1.3 }}>{notif.title}</h3>
+                    <span style={{ fontSize: '0.675rem', color: theme.palette.text.disabled, display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
                       <Clock size={12} />
-                      {new Date(notif.created_at).toLocaleDateString()} {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(notif.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <p style={{ margin: 0, color: theme.palette.text.secondary, lineHeight: 1.6 }}>{notif.description}</p>
+                  <p style={{ margin: 0, color: theme.palette.text.secondary, fontSize: '0.8125rem', lineHeight: 1.5 }}>{notif.description}</p>
                 </div>
               </div>
             ))}
@@ -302,7 +317,7 @@ const StudentNotificationsPage: React.FC = () => {
       </div>
 
       <style>{`
-        .hover-lift:hover { transform: translateY(-2px); }
+        .hover-lift:hover { transform: translateY(-4px); }
       `}</style>
     </>
   );
