@@ -6,7 +6,6 @@ import {
   Bell, 
   User, 
   LogOut, 
-  Car, 
   Menu, 
   Sun, 
   Moon, 
@@ -17,7 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 import { IRootState } from '@app/appReducer';
 import { sessionLogout, setThemeMode } from '@modules/Auth/authActions';
-import NotificationPopover from './NotificationPopover';
+import NotificationPopover, { Notification as PopoverNotification } from './NotificationPopover';
 import { api } from '@utils/services/api';
 import { supabase } from '@utils/lib/supabase';
 
@@ -29,7 +28,7 @@ interface INotification {
   id: string;
   title: string;
   description: string;
-  type: string;
+  type: 'permit' | 'security' | 'system' | 'general' | string;
   is_read: boolean;
   created_at: string;
   [key: string]: unknown;
@@ -158,7 +157,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             justifyContent: 'center',
             color: 'white'
           }}>
-            <Car size={isSmallMobile ? 16 : 18} />
+            <img src="/cpms_logo.png" alt="Logo" style={{ width: isSmallMobile ? '20px' : '24px', height: 'auto' }} />
           </div>
           <span style={{ 
             fontWeight: 700, 
@@ -196,7 +195,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             style={{ 
               background: 'none', 
               border: 'none', 
-              color: Boolean(notificationAnchorEl) ? theme.palette.primary.main : theme.palette.text.secondary, 
+              color: notificationAnchorEl ? theme.palette.primary.main : theme.palette.text.secondary, 
               cursor: 'pointer',
               padding: '8px',
               borderRadius: '8px',
@@ -221,7 +220,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
           <NotificationPopover 
             anchorEl={notificationAnchorEl} 
             onClose={() => setNotificationAnchorEl(null)}
-            notifications={notifications as any}
+            notifications={notifications as unknown as PopoverNotification[]} 
             loading={loadingNotifications}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}

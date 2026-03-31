@@ -24,6 +24,14 @@ interface Detection {
   };
 }
 
+interface MediaMetadata {
+  filename: string;
+  is_video: boolean;
+  frames_processed?: number;
+  parking?: IParkingData;
+  [key: string]: unknown;
+}
+
 interface IParkingSlot {
   id: string;
   occupied: boolean;
@@ -76,7 +84,7 @@ const ResultImageCanvas: React.FC<{ data: { image: string; parking: IParkingData
         ctx.strokeRect(x, y, width, height);
         ctx.fillStyle = '#00ff00';
         ctx.font = `bold ${scaledFontSize}px Inter, sans-serif`;
-        ctx.fillText(`${det.type || (det as any).class} (${Math.round(det.confidence * 100)}%)`, x, y > scaledFontSize + 5 ? y - (scaledFontSize / 2) : y + scaledFontSize + 5);
+        ctx.fillText(`${det.type} (${Math.round(det.confidence * 100)}%)`, x, y > scaledFontSize + 5 ? y - (scaledFontSize / 2) : y + scaledFontSize + 5);
       });
 
       // Draw parking slot overlays
@@ -134,6 +142,12 @@ const MediaUploads: React.FC = () => {
   const [imageCache, setImageCache] = useState<Record<string, { image: string; parking: IParkingData; detections: Detection[] }>>({});
   const [loadingImage, setLoadingImage] = useState<string | null>(null);
 
+  // Use ref to avoid re-subscribing when fileStatuses changes
+  const fileStatusesRef = useRef(fileStatuses);
+  useEffect(() => {
+    fileStatusesRef.current = fileStatuses;
+  }, [fileStatuses]);
+
   // Fetch full history from database
   const fetchHistory = useCallback(async () => {
     setSyncing(true);
@@ -148,23 +162,23 @@ const MediaUploads: React.FC = () => {
       if (error) throw error;
 
       const formattedHistory = (data || []).map((row: IHistoryItem) => {
-        let metadata: any = row.metadata;
-        let results: any = row.results;
-        if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch(e) {} }
-        if (typeof results === 'string') { try { results = JSON.parse(results); } catch(e) {} }
+        let metadata = row.metadata;
+        let results = row.results;
+        if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch { /* ignore */ } }
+        if (typeof results === 'string') { try { results = JSON.parse(results); } catch { /* ignore */ } }
         
         const resultsCount = Array.isArray(results) ? results.length : 0;
-        const parkingOccupied = (metadata && typeof metadata === 'object' && metadata.parking) ? metadata.parking.occupied || 0 : 0;
+        const parkingOccupied = (metadata && typeof metadata === 'object' && metadata.parking) ? (metadata.parking as IParkingData).occupied || 0 : 0;
         
         return {
           id: row.id,
-          name: (metadata && typeof metadata === 'object' && metadata.filename) ? metadata.filename : 'Unknown',
-          size: (metadata && typeof metadata === 'object' && metadata.is_video) ? `${metadata.frames_processed || 0} Frames` : 'Single Image',
+          name: (metadata && typeof metadata === 'object' && 'filename' in metadata) ? (metadata as MediaMetadata).filename : 'Unknown',
+          size: (metadata && typeof metadata === 'object' && 'is_video' in metadata) ? `${(metadata as MediaMetadata).frames_processed || 0} Frames` : 'Single Image',
           time: new Date(row.timestamp).toLocaleString(),
           detections: resultsCount > 0 ? resultsCount : parkingOccupied,
-          isVideo: (metadata && typeof metadata === 'object' && metadata.is_video) ? metadata.is_video : false,
-          availableSlots: (metadata && typeof metadata === 'object' && metadata.parking) ? metadata.parking.available : 0,
-          totalSlots: (metadata && typeof metadata === 'object' && metadata.parking) ? metadata.parking.totalSlots : 0
+          isVideo: (metadata && typeof metadata === 'object' && 'is_video' in metadata) ? metadata.is_video : false,
+          availableSlots: (metadata && typeof metadata === 'object' && metadata.parking) ? (metadata.parking as IParkingData).available : 0,
+          totalSlots: (metadata && typeof metadata === 'object' && metadata.parking) ? (metadata.parking as IParkingData).totalSlots : 0
         };
       });
 
@@ -173,13 +187,13 @@ const MediaUploads: React.FC = () => {
       // Only update statuses for items actively being tracked (not cleared history)
       if (!statusesCleared.current) {
         formattedHistory.forEach(item => {
-          if (fileStatuses[item.name] && fileStatuses[item.name] !== 'done') {
+          if (fileStatusesRef.current[item.name as string] && fileStatusesRef.current[item.name as string] !== 'done') {
             dispatch({ type: SET_FILE_STATUS, name: item.name, status: 'done' });
           }
         });
       }
-    } catch (err: any) {
-      console.error('Failed to fetch history:', err);
+    } catch {
+      console.error('Failed to fetch history');
     } finally {
       setSyncing(false);
     }
@@ -211,9 +225,9 @@ const MediaUploads: React.FC = () => {
       dispatch({ type: MERGE_FILE_STATUSES, statuses: processing });
 
       setUploading(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upload failed:', err);
-      setError(err.message || 'Failed to start batch processing.');
+      setError((err as Error).message || 'Failed to start batch processing.');
       setUploading(false);
       
       const errors: Record<string, 'error'> = {};
@@ -255,57 +269,48 @@ const MediaUploads: React.FC = () => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'camera_detections' },
-        (payload: any) => {
-          console.log('[MediaUploads] Realtime INSERT event:', payload);
+        (payload: { new: Record<string, unknown> }) => {
           const newDoc = payload.new;
-          if (newDoc.source_type !== 'Upload') {
-            console.log('[MediaUploads] Skipping non-Upload source:', newDoc.source_type);
-            return;
-          }
+          if (newDoc.source_type !== 'Upload') return;
           
           let metadata = newDoc.metadata;
           let results = newDoc.results;
-          if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch(e) {} }
-          if (typeof results === 'string') { try { results = JSON.parse(results); } catch(e) {} }
+          if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch { /* ignore */ } }
+          if (typeof results === 'string') { try { results = JSON.parse(results); } catch { /* ignore */ } }
           
-          const filename = metadata?.filename;
-          console.log('[MediaUploads] Processing upload for filename:', filename);
+          const filename = (metadata as MediaMetadata)?.filename;
           
           if (filename) {
             // Update status in Redux
-            console.log('[MediaUploads] Dispatching SET_FILE_STATUS to "done" for:', filename);
-            if (!statusesCleared.current && fileStatuses[filename]) {
+            if (!statusesCleared.current && fileStatusesRef.current[filename]) {
               dispatch({ type: SET_FILE_STATUS, name: filename, status: 'done' });
             }
 
             // Add to history in Redux
             const resultsCount = Array.isArray(results) ? results.length : 0;
-            const parkingOccupied = metadata?.parking?.occupied || 0;
+            const parkingOccupied = (metadata as MediaMetadata)?.parking?.occupied || 0;
             dispatch({ 
               type: ADD_HISTORY_ITEM, 
               item: { 
                 id: newDoc.id,
                 name: filename, 
-                size: metadata?.is_video ? `${metadata?.frames_processed} Frames` : 'Single Image', 
-                time: new Date(newDoc.timestamp).toLocaleString(), 
+                size: (metadata as MediaMetadata)?.is_video ? `${(metadata as MediaMetadata)?.frames_processed} Frames` : 'Single Image', 
+                time: new Date(newDoc.timestamp as string).toLocaleString(), 
                 detections: resultsCount > 0 ? resultsCount : parkingOccupied,
-                isVideo: metadata?.is_video,
-                availableSlots: metadata?.parking?.available,
-                totalSlots: metadata?.parking?.totalSlots
+                isVideo: (metadata as MediaMetadata)?.is_video,
+                availableSlots: (metadata as MediaMetadata)?.parking?.available,
+                totalSlots: (metadata as MediaMetadata)?.parking?.totalSlots
               } 
             });
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[MediaUploads] Realtime subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('[MediaUploads] Cleaning up Realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [dispatch]);
+  }, [dispatch, fetchHistory]);
 
   return (
     <Box sx={{ p: isTinyMobile ? 1.25 : isExtraSmall ? 1.5 : isMobile ? 2 : 3, color: theme.palette.text.primary, maxWidth: '100vw', overflowX: 'hidden', boxSizing: 'border-box' }}>
@@ -519,8 +524,8 @@ const MediaUploads: React.FC = () => {
                           if (data) {
                             let metadata = data.metadata;
                             let results = data.results;
-                            if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch(e) {} }
-                            if (typeof results === 'string') { try { results = JSON.parse(results); } catch(e) {} }
+                            if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata); } catch { /* ignore */ } }
+                            if (typeof results === 'string') { try { results = JSON.parse(results); } catch { /* ignore */ } }
                             const mime = metadata?.mimeType || 'image/jpeg';
                             const b64 = metadata?.original_image_base64;
                             if (b64) {

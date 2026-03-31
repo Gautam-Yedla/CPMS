@@ -40,7 +40,7 @@ const CameraManagement: React.FC = () => {
       try {
         await api.deleteCamera(id);
         setCameras(cameras.filter(c => c.id !== id));
-      } catch (error) {
+      } catch {
         alert('Failed to delete camera');
       }
     }

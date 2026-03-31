@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-interface Notification {
+export interface Notification {
   id: string;
   title: string;
   description: string;

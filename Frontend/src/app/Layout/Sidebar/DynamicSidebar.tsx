@@ -183,7 +183,7 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ backgroundColor: theme.palette.primary.main, padding: '6px', borderRadius: '8px', color: 'white' }}>
-              <Car size={20} />
+              <img src="/cpms_logo.png" alt="Logo" style={{ width: '20px', height: 'auto' }} />
             </div>
             <span style={{ fontWeight: 800, fontSize: '1.25rem', color: theme.palette.text.primary }}>CPMS</span>
           </div>
