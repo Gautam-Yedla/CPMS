@@ -2,6 +2,7 @@ import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 import { logActivity } from '../utils/activityLogger.js';
+import { NotificationService } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.get('/active', authMiddleware, async (req: any, res) => {
       .from('permits')
       .select('*')
       .eq('user_id', userId)
-      .in('status', ['Active', 'Pending'])
+      .in('status', ['Active', 'Approved', 'Pending'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -53,7 +54,7 @@ router.get('/history', authMiddleware, async (req: any, res) => {
       .from('permits')
       .select('*')
       .eq('user_id', userId)
-      .neq('status', 'Active') // Fetch inactive/expired permits
+      .not('status', 'in', '("Active","Approved","Pending")') // Fetch inactive/expired/rejected permits
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -126,6 +127,22 @@ router.post('/apply', authMiddleware, async (req: any, res) => {
         permit_status: 'Pending',
         // permit_expiry: expiryDate.toISOString() // Don't set expiry yet
     }).eq('id', userId);
+
+    try {
+        await NotificationService.notify(userId, {
+            title: 'Permit Application Received',
+            description: `Your application for a ${permit_type || 'Standard'} permit has been received and is pending approval.`,
+            type: 'permit'
+        });
+        // Notify admins about the new permit application
+        await NotificationService.notifyAdmins(supabase, {
+            title: 'New Permit Application',
+            description: `A new application for a ${permit_type || 'Standard'} permit has been submitted and is pending review.`,
+            type: 'permit'
+        });
+    } catch (notifErr) {
+        console.error('Failed to send permit application notification:', notifErr);
+    }
 
     res.json(data);
   } catch (err: any) {
@@ -201,6 +218,16 @@ router.put('/admin/:id/status', authMiddleware, adminMiddleware, async (req: any
     }).eq('id', permit.user_id);
 
     await logActivity(supabase, req.user.id, 'UPDATE_PERMIT_STATUS', `Updated permit ${id} to ${status}`);
+
+    try {
+        await NotificationService.notify(permit.user_id, {
+            title: `Permit ${status}`,
+            description: `Your permit application has been ${status.toLowerCase()}.${remarks ? ' Remarks: ' + remarks : ''}`,
+            type: 'permit'
+        });
+    } catch (notifErr) {
+        console.error('Failed to send permit status update notification:', notifErr);
+    }
 
     res.json(permit);
   } catch (err: any) {

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { NotificationService } from '../services/notificationService.js';
 
 const getSupabase = (req: Request) => {
   if (!req.headers.authorization) {
@@ -132,11 +133,21 @@ export const getUserRoles = async (req: Request, res: Response) => {
     const { userId } = req.params;
     const { data, error } = await getSupabase(req)
       .from('user_roles')
-      .select('role_id, roles(*)')
+      .select('role_id, roles(*, role_permissions(permissions(name, description)))')
       .eq('user_id', userId);
 
     if (error) throw error;
-    res.json(data.map((item: any) => item.roles));
+    
+    // Flatten permissions list for easier frontend consumption
+    const rolesWithPermissions = data.map((item: any) => {
+      const role = item.roles;
+      const perms = role.role_permissions 
+        ? role.role_permissions.map((rp: any) => rp.permissions).filter(Boolean) 
+        : [];
+      return { ...role, permissionsList: perms };
+    });
+
+    res.json(rolesWithPermissions);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -243,6 +254,17 @@ export const approveUser = async (req: Request, res: Response) => {
             .eq('id', userId);
 
         if (error) throw error;
+        
+        try {
+            await NotificationService.notify(userId as string, {
+                title: 'Account Approved',
+                description: 'Your CPMS account has been approved by an administrator. You may now access all features.',
+                type: 'system'
+            });
+        } catch (notifErr) {
+            console.error('Failed to send approval notification:', notifErr);
+        }
+
         res.json({ message: 'User approved successfully' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -292,7 +314,11 @@ export const seedDatabase = async (req: Request, res: Response) => {
         const permissions = [
             { name: 'vehicles.manage', module: 'Vehicles', description: 'Manage vehicles' },
             { name: 'reports.view', module: 'Analytics', description: 'View reports' },
-            { name: 'cameras.view', module: 'Monitoring', description: 'View cameras' }
+            { name: 'cameras.view', module: 'Monitoring', description: 'View cameras' },
+            { name: 'fines.view.own', module: 'Fines', description: 'View own fines' },
+            { name: 'fines.pay.own', module: 'Fines', description: 'Pay own fines' },
+            { name: 'fines.view.all', module: 'Fines', description: 'View all fines in the system' },
+            { name: 'fines.manage.all', module: 'Fines', description: 'Manage all fines' }
         ];
 
         for (const perm of permissions) {

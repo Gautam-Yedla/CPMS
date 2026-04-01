@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { NotificationService } from '../services/notificationService.js';
 
 // Get all tickets (Admin sees all, User sees own - Logic handled here or by params)
 export const getTickets = async (req: any, res: Response) => {
@@ -59,6 +60,23 @@ export const createTicket = async (req: any, res: Response) => {
       .single();
 
     if (error) throw error;
+
+    try {
+        await NotificationService.notify(userId, {
+            title: 'Support Ticket Created',
+            description: `Your support ticket "${subject}" has been received. Our team will review it shortly.`,
+            type: 'system'
+        });
+        // Notify admins that a new ticket was created
+        await NotificationService.notifyAdmins(supabase, {
+            title: 'New Support Ticket',
+            description: `A new support ticket "${subject}" has been submitted and is awaiting review.`,
+            type: 'system'
+        });
+    } catch (notifErr) {
+        console.error('Failed to send ticket creation notification:', notifErr);
+    }
+
     res.status(201).json(data);
   } catch (err: any) {
     console.error('Error creating ticket:', err);
@@ -88,6 +106,17 @@ export const updateTicket = async (req: any, res: Response) => {
       .single();
 
     if (error) throw error;
+
+    try {
+        await NotificationService.notify(data.user_id, {
+            title: 'Support Ticket Updated',
+            description: `Your support ticket has been updated. Status: ${data.status.toUpperCase()}, Priority: ${data.priority.toUpperCase()}`,
+            type: 'system'
+        });
+    } catch (notifErr) {
+        console.error('Failed to send ticket update notification:', notifErr);
+    }
+
     res.json(data);
   } catch (err: any) {
     console.error('Error updating ticket:', err);

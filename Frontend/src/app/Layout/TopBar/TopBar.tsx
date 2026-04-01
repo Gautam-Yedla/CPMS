@@ -224,7 +224,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
             loading={loadingNotifications}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}
-            basePath={user?.role === 'admin' ? '/admin' : '/student'}
+            basePath={user?.role === 'admin' ? '/admin' : ''}
           />
         </div>
         

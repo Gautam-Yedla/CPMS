@@ -184,29 +184,30 @@ const PermitReviewPage: React.FC = () => {
     }
   };
 
-  const handleAction = async () => {
-    if (!selectedPermit || !actionType) return;
+  const handleAction = async (typeOverride?: 'Approve' | 'Reject') => {
+    const finalAction = typeOverride || actionType;
+    if (!selectedPermit || !finalAction) return;
     
     setProcessing(true);
     try {
-      const status = actionType === 'Approve' ? 'Approved' : 'Rejected';
+      const status = finalAction === 'Approve' ? 'Approved' : 'Rejected';
       const payload: any = { status };
       
-      if (actionType === 'Approve' && useManualAssignment) {
+      if (finalAction === 'Approve' && useManualAssignment) {
         payload.zone = manualZone;
         payload.spot = manualSpot;
       }
 
       await api.updatePermitStatus(selectedPermit.id, payload);
-      toast.success(`Permit ${actionType.toLowerCase()}d successfully`);
+      toast.success(`Permit ${finalAction.toLowerCase()}d successfully`);
       setActionDialogOpen(false);
       setSelectedPermit(null);
       setUseManualAssignment(false);
       setManualSpot('');
       loadPermits();
     } catch (err) {
-      console.error(`Failed to ${actionType.toLowerCase()} permit:`, err);
-      toast.error(`Failed to ${actionType.toLowerCase()} permit`);
+      console.error(`Failed to ${finalAction.toLowerCase()} permit:`, err);
+      toast.error(`Failed to ${finalAction.toLowerCase()} permit`);
     } finally {
       setProcessing(false);
     }
@@ -500,8 +501,8 @@ const PermitReviewPage: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ pb: 3, justifyContent: 'center', gap: 2 }}>
-            <Button onClick={() => { setActionType('Reject'); handleAction(); }} color="error" disabled={processing}>Reject</Button>
-            <Button variant="contained" onClick={handleAction} disabled={processing}>Approve</Button>
+            <Button onClick={() => handleAction('Reject')} color="error" disabled={processing}>Reject</Button>
+            <Button variant="contained" onClick={() => handleAction('Approve')} disabled={processing}>Approve</Button>
         </DialogActions>
       </Dialog>
     </Box>

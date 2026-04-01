@@ -77,7 +77,35 @@ const PermissionsPageContent: React.FC = () => {
   const fetchPermissions = async () => {
     try {
       setLoading(true);
-      const data = await api.fetchPermissions();
+      let data = await api.fetchPermissions();
+
+      // --- Auto Seed Fines Permissions ---
+      const requiredFines = [
+        { name: 'fines.view.own', module: 'Fines', description: 'View own fines', scope: 'system' },
+        { name: 'fines.pay.own', module: 'Fines', description: 'Pay own fines', scope: 'system' },
+        { name: 'fines.view.all', module: 'Fines', description: 'View all fines in the system', scope: 'global' },
+        { name: 'fines.manage.all', module: 'Fines', description: 'Manage all fines', scope: 'global' }
+      ];
+      
+      let needsRefetch = false;
+      const existingNames = data.map((p: Permission) => p.name);
+      
+      for (const perm of requiredFines) {
+        if (!existingNames.includes(perm.name)) {
+          try {
+            await api.createPermission(perm);
+            needsRefetch = true;
+          } catch (err) {
+            console.warn('Auto-seed failed for', perm.name, err);
+          }
+        }
+      }
+
+      if (needsRefetch) {
+        data = await api.fetchPermissions();
+      }
+      // --- End Auto Seed ---
+
       setPermissions(data);
       const modules = Array.from(new Set(data.map((p: Permission) => p.module)));
       setExpandedAccordions(modules as string[]);

@@ -23,6 +23,24 @@ export const getUserNotifications = async (req: Request, res: Response) => {
   }
 };
 
+export const getAllNotifications = async (req: Request, res: Response) => {
+  try {
+    const supabase = (req as any).supabase;
+    
+    // Fetch all notifications from all users, joining profiles to get names
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*, profiles(full_name, department)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err: any) {
+    console.error('Error fetching all notifications:', err);
+    res.status(500).json({ error: 'Error fetching notifications' });
+  }
+};
+
 export const markAsRead = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;

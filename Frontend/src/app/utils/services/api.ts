@@ -46,6 +46,7 @@ export const api = {
 
   // Notifications
   fetchNotifications: () => request('/notifications'),
+  fetchAllNotifications: () => request('/notifications/all'),
   markNotificationRead: (id: string) => request(`/notifications/${id}/read`, { method: 'POST' }),
   markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
 
@@ -146,6 +147,8 @@ export const api = {
 
   // Violations
   fetchViolations: () => request('/violations'),
+  fetchMyViolations: () => request('/violations/me'),
+  payViolation: (id: string) => request(`/violations/${id}/pay`, { method: 'PUT' }),
 
   // Activity
   fetchActivityLogs: () => request('/activity'),

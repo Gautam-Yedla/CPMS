@@ -19,7 +19,8 @@ import {
   Checkbox,
   CircularProgress,
   useMediaQuery,
-  IconButton
+  IconButton,
+  Chip
 } from '@mui/material';
 import { Search, UserCog, Shield, AlertCircle, Mail, MapPin, SearchSlash, Users, X } from 'lucide-react';
 import { api } from '@utils/services/api';
@@ -37,6 +38,7 @@ interface Role {
   name: string;
   description: string;
   is_system?: boolean;
+  permissionsList?: { name: string; description: string }[];
 }
 
 const UsersPage: React.FC = () => {
@@ -221,6 +223,26 @@ const UsersPage: React.FC = () => {
                                         <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: theme.palette.primary.main }} />
                                         <Typography variant="subtitle2" fontWeight="800" sx={{ mb: 0.5 }}>{role.name}</Typography>
                                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{role.description || 'Global system permissions.'}</Typography>
+                                        
+                                        {role.permissionsList && role.permissionsList.length > 0 && (
+                                            <Box sx={{ mt: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {role.permissionsList.map(p => (
+                                                    <Chip 
+                                                        key={p.name} 
+                                                        label={p.name} 
+                                                        size="small" 
+                                                        title={p.description}
+                                                        sx={{ 
+                                                            fontSize: '0.65rem', 
+                                                            height: '20px', 
+                                                            fontWeight: 700,
+                                                            bgcolor: `${theme.palette.primary.main}15`,
+                                                            color: theme.palette.primary.main
+                                                        }} 
+                                                    />
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Paper>
                                 ))}
                             </Box>

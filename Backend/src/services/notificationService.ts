@@ -51,6 +51,36 @@ export class NotificationService {
         }
     }
 
+    /**
+     * Broadcast notification to all Admin users
+     */
+    static async notifyAdmins(authenticatedClient: any, payload: NotificationPayload, channels: NotificationChannel[] = [NotificationChannel.WEB]) {
+        try {
+            // Retrieve admin role
+            const { data: adminRole } = await authenticatedClient
+                .from('roles')
+                .select('id')
+                .ilike('name', 'Admin')
+                .single();
+            
+            if (!adminRole) return;
+
+            // Retrieve admin users
+            const { data: adminUsers } = await authenticatedClient
+                .from('user_roles')
+                .select('user_id')
+                .eq('role_id', adminRole.id);
+
+            if (!adminUsers || adminUsers.length === 0) return;
+
+            await Promise.allSettled(
+                adminUsers.map((u: any) => this.notify(u.user_id, payload, channels))
+            );
+        } catch (error) {
+            console.error('Notify Admins Dispatch Error:', error);
+        }
+    }
+
     private static async sendWebNotification(userId: string, payload: NotificationPayload) {
         const { error } = await supabase.from('notifications').insert({
             user_id: userId,

@@ -2,6 +2,7 @@ import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { logActivity } from '../utils/activityLogger.js';
+import { NotificationService } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -72,6 +73,16 @@ router.post('/', authMiddleware, async (req: any, res) => {
     if (error) throw error;
 
     await logActivity(supabase, userId, 'REGISTER_VEHICLE', `Registered vehicle: ${final_number} (${final_make_model || 'Unknown'})`);
+
+    try {
+        await NotificationService.notify(userId, {
+            title: 'Vehicle Registered',
+            description: `Your vehicle ${final_number} has been successfully registered to your profile.`,
+            type: 'general'
+        });
+    } catch (notifErr) {
+        console.error('Failed to send vehicle registration notification:', notifErr);
+    }
 
     res.json({
       vehicle_number: data.vehicle_number,

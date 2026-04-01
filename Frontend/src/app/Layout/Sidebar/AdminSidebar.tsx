@@ -18,7 +18,9 @@ import {
   ShieldCheck,
   UserCog,
   Key,
-  X
+  X,
+  ShieldAlert,
+  Bell
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -53,6 +55,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, isMobile, onClose }
     { label: 'User Management', icon: <Users size={20} />, path: '/admin/users' },
     { label: 'Parking Management', icon: <Car size={20} />, path: '/admin/parking' },
     { label: 'Violations', icon: <ClipboardList size={20} />, path: '/admin/violations' },
+    { label: 'Admin Fines', icon: <ShieldAlert size={20} />, path: '/admin/fines' },
+    { label: 'System Notifications', icon: <Bell size={20} />, path: '/admin/notifications' },
     { label: 'Reports', icon: <BarChart3 size={20} />, path: '/admin/reports' },
     { label: 'Support Tickets', icon: <LifeBuoy size={20} />, path: '/admin/support' },
     {

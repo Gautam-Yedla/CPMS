@@ -3,11 +3,11 @@ import { NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { IPermission } from '@modules/Auth/authReducer';
 import { useTheme } from '@mui/material/styles';
-import { 
-  LayoutDashboard, 
-  Car, 
-  Info, 
-  History, 
+import {
+  LayoutDashboard,
+  Car,
+  Info,
+  History,
   LifeBuoy,
   Activity,
   Navigation,
@@ -47,97 +47,103 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
 
   const toggleSection = (label: string) => {
     if (!isOpen && !isMobile && onExpand) {
-        onExpand();
-        setOpenSections(prev => ({ ...prev, [label]: true }));
+      onExpand();
+      setOpenSections(prev => ({ ...prev, [label]: true }));
     } else {
-        setOpenSections(prev => ({ ...prev, [label]: !prev[label] }));
+      setOpenSections(prev => ({ ...prev, [label]: !prev[label] }));
     }
   };
 
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', icon: <LayoutDashboard size={20} />, path: `/${user?.role || 'student'}-dashboard` },
-    { 
-        label: 'My Vehicles', 
-        icon: <Car size={20} />, 
-        path: '/vehicles', 
-        permission: 'vehicles.manage' 
+    {
+      label: 'My Vehicles',
+      icon: <Car size={20} />,
+      path: '/vehicles',
+      permission: 'vehicles.manage'
     },
-    { 
-        label: 'Parking Status', 
-        icon: <Info size={20} />, 
-        path: '/status' 
+    {
+      label: 'Parking Status',
+      icon: <Info size={20} />,
+      path: '/status'
     },
-    { 
-        label: 'Parking History', 
-        icon: <History size={20} />, 
-        path: '/history', 
-        permission: 'history.view' 
+    {
+      label: 'Parking History',
+      icon: <History size={20} />,
+      path: '/history',
+      permission: 'history.view'
     },
-    { 
-        label: 'Zone Monitoring', 
-        icon: <Navigation size={20} />, 
-        path: '/zones', 
-        permission: 'zones.faculty.view' 
+    {
+      label: 'Zone Monitoring',
+      icon: <Navigation size={20} />,
+      path: '/zones',
+      permission: 'zones.faculty.view'
     },
-    { 
-        label: 'Support', 
-        icon: <LifeBuoy size={20} />, 
-        path: '/support' 
+    {
+      label: 'My Fines',
+      icon: <ShieldAlert size={20} />,
+      path: '/fines',
+      permission: 'fines.view.own'
     },
-    { 
-        label: 'Notifications', 
-        icon: <Bell size={20} />, 
-        path: user?.role === 'admin' ? '/admin/notifications' : '/notifications' 
+    {
+      label: 'Support',
+      icon: <LifeBuoy size={20} />,
+      path: '/support'
+    },
+    {
+      label: 'Notifications',
+      icon: <Bell size={20} />,
+      path: user?.role === 'admin' ? '/admin/notifications' : '/notifications'
     },
     // Admin Sections
     {
-        label: 'Camera Monitoring',
-        icon: <Video size={20} />,
-        path: '/admin/cameras',
-        adminOnly: true,
-        subItems: [
-            { label: 'Live Streams', icon: <Video size={18} />, path: '/admin/live-streams' },
-            { label: 'Management', icon: <Video size={18} />, path: '/admin/cameras' },
-            { label: 'Media Uploads', icon: <HardDrive size={18} />, path: '/admin/media-uploads' },
-        ]
+      label: 'Camera Monitoring',
+      icon: <Video size={20} />,
+      path: '/admin/cameras',
+      adminOnly: true,
+      subItems: [
+        { label: 'Live Streams', icon: <Video size={18} />, path: '/admin/live-streams' },
+        { label: 'Management', icon: <Video size={18} />, path: '/admin/cameras' },
+        { label: 'Media Uploads', icon: <HardDrive size={18} />, path: '/admin/media-uploads' },
+      ]
     },
     {
-        label: 'Analytics',
-        icon: <FileBarChart size={20} />,
-        path: '/admin/reports',
-        adminOnly: true,
-        subItems: [
-            { label: 'Dynamic Reports', icon: <FileBarChart size={18} />, path: '/admin/reports' },
-            { label: 'System Status', icon: <Activity size={18} />, path: '/admin/system-status' },
-        ]
+      label: 'Analytics',
+      icon: <FileBarChart size={20} />,
+      path: '/admin/reports',
+      adminOnly: true,
+      subItems: [
+        { label: 'Dynamic Reports', icon: <FileBarChart size={18} />, path: '/admin/reports' },
+        { label: 'System Status', icon: <Activity size={18} />, path: '/admin/system-status' },
+      ]
     },
     {
-        label: 'Parking Control',
-        icon: <Navigation size={20} />,
-        path: '/admin/parking',
-        adminOnly: true,
-        subItems: [
-            { label: 'Zone Management', icon: <Navigation size={18} />, path: '/admin/parking' },
-            { label: 'Permit Review', icon: <Car size={18} />, path: '/admin/permits' },
-            { label: 'Violations', icon: <ShieldAlert size={18} />, path: '/admin/violations' },
-        ]
+      label: 'Parking Control',
+      icon: <Navigation size={20} />,
+      path: '/admin/parking',
+      adminOnly: true,
+      subItems: [
+        { label: 'Zone Management', icon: <Navigation size={18} />, path: '/admin/parking' },
+        { label: 'Permit Review', icon: <Car size={18} />, path: '/admin/permits' },
+        { label: 'Violations', icon: <ShieldAlert size={18} />, path: '/admin/violations' },
+      ]
     },
     {
-        label: 'User Management',
-        icon: <Users size={20} />,
-        path: '/admin/users',
-        adminOnly: true,
+      label: 'User Management',
+      icon: <Users size={20} />,
+      path: '/admin/users',
+      adminOnly: true,
     },
-    { 
-        label: 'Auth & Roles', 
-        icon: <ShieldCheck size={20} />, 
-        path: '/admin/auth/roles', 
-        adminOnly: true,
-        subItems: [
-            { label: 'Role Management', icon: <ShieldCheck size={18} />, path: '/admin/auth/roles' },
-            { label: 'Permissions', icon: <ShieldCheck size={18} />, path: '/admin/auth/permissions' },
-            { label: 'Direct Users', icon: <ShieldCheck size={18} />, path: '/admin/auth/users' },
-        ]
+    {
+      label: 'Auth & Roles',
+      icon: <ShieldCheck size={20} />,
+      path: '/admin/auth/roles',
+      adminOnly: true,
+      subItems: [
+        { label: 'Role Management', icon: <ShieldCheck size={18} />, path: '/admin/auth/roles' },
+        { label: 'Permissions', icon: <ShieldCheck size={18} />, path: '/admin/auth/permissions' },
+        { label: 'Direct Users', icon: <ShieldCheck size={18} />, path: '/admin/auth/users' },
+      ]
     },
   ];
 
@@ -154,7 +160,7 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
   const sidebarWidth = isMobile ? '280px' : (isOpen ? '260px' : '80px');
 
   return (
-    <aside style={{ 
+    <aside style={{
       width: sidebarWidth,
       backgroundColor: theme.palette.background.paper,
       borderRight: `1px solid ${theme.palette.divider}`,
@@ -172,12 +178,12 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
       boxShadow: isMobile ? '10px 0 30px rgba(0,0,0,0.1)' : '0px 2px 4px rgba(0,0,0,0.02)',
       transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none'
     }} className="custom-scrollbar">
-      
+
       {isMobile && (
-        <div style={{ 
-          padding: '1.25rem', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          padding: '1.25rem',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           borderBottom: `1px solid ${theme.palette.divider}`
         }}>
@@ -187,7 +193,7 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
             </div>
             <span style={{ fontWeight: 800, fontSize: '1.25rem', color: theme.palette.text.primary }}>CPMS</span>
           </div>
-          <button 
+          <button
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: theme.palette.text.secondary }}
           >
@@ -199,7 +205,7 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
       <div style={{ padding: '1rem 0', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {filteredItems.map((item) => {
           const isDropdown = !!item.subItems;
-          
+
           return (
             <React.Fragment key={item.label}>
               {isDropdown ? (
@@ -220,9 +226,9 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
                   }}
                   className="sidebar-link"
                 >
-                  <div style={{ 
-                    minWidth: (isOpen || isMobile) ? (isMobile ? '60px' : '80px') : 'auto', 
-                    display: 'flex', 
+                  <div style={{
+                    minWidth: (isOpen || isMobile) ? (isMobile ? '60px' : '80px') : 'auto',
+                    display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center'
                   }}>
@@ -254,8 +260,8 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
                     transition: 'all 0.2s',
                     position: 'relative',
                     justifyContent: (isOpen || isMobile) ? 'flex-start' : 'center',
-                    backgroundColor: isActive 
-                      ? (theme.palette.mode === 'light' ? `${theme.palette.primary.main}15` : `${theme.palette.primary.main}25`) 
+                    backgroundColor: isActive
+                      ? (theme.palette.mode === 'light' ? `${theme.palette.primary.main}15` : `${theme.palette.primary.main}25`)
                       : 'transparent',
                   })}
                 >
@@ -266,13 +272,13 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({ isOpen, onExpand, isMob
                     bottom: 0,
                     width: '5px',
                     backgroundColor: theme.palette.primary.main,
-                    opacity: 0, 
+                    opacity: 0,
                     transition: 'opacity 0.2s'
                   }} className="active-indicator" />
 
-                  <div style={{ 
-                    minWidth: (isOpen || isMobile) ? (isMobile ? '60px' : '80px') : 'auto', 
-                    display: 'flex', 
+                  <div style={{
+                    minWidth: (isOpen || isMobile) ? (isMobile ? '60px' : '80px') : 'auto',
+                    display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center'
                   }}>
