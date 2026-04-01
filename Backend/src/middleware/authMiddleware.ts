@@ -33,11 +33,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
     // FETCH GROUND TRUTH ROLE FROM DB
     // 1. Check user_roles junction table
-    const { data: userRole, error: roleError } = await supabase
+    const { data: userRolesData, error: roleError } = await supabase
       .from('user_roles')
       .select('roles(name)')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
     // 2. Fallback check profiles.role column
     const { data: profileRole } = await supabase
@@ -46,16 +45,24 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       .eq('id', user.id)
       .single();
 
-    console.log(`[authMiddleware] DB Role Check for ${user.id}:`, JSON.stringify({ userRole, roleError, profileRole }));
+    console.log(`[authMiddleware] DB Role Check for ${user.id}:`, JSON.stringify({ userRoles: userRolesData, roleError, profileRole }));
 
     let detectedRole = 'student';
 
     // Priority 1: user_roles table
-    if (!roleError && userRole?.roles) {
-        if (Array.isArray(userRole.roles)) {
-            detectedRole = userRole.roles[0]?.name || detectedRole;
-        } else if (typeof userRole.roles === 'object') {
-            detectedRole = (userRole.roles as any).name || detectedRole;
+    if (!roleError && userRolesData && userRolesData.length > 0) {
+        // Find 'Admin' role if present
+        const hasAdmin = userRolesData.some((ur: any) => {
+            const rRoles = ur.roles as any;
+            return rRoles?.name?.toLowerCase() === 'admin' || (Array.isArray(rRoles) && rRoles.some((r: any) => r?.name?.toLowerCase() === 'admin'));
+        });
+        
+        if (hasAdmin) {
+            detectedRole = 'admin';
+        } else {
+            // Otherwise just pick the first explicitly assigned role
+            const firstRole = (userRolesData as any[])[0]?.roles as any;
+            detectedRole = firstRole?.name || (Array.isArray(firstRole) ? firstRole[0]?.name : detectedRole);
         }
     } 
     // Priority 2: profiles column (if still student)

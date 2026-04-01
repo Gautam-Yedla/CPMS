@@ -66,31 +66,51 @@ router.post('/process', authMiddleware, async (req: any, res) => {
     // 1. Process with ML
     const mlResults = await MLBridgeService.processFrame(image, timestamp);
 
-    // 2. Log detection to database
-    const { error: logError } = await supabase
-      .from('camera_detections')
-      .insert({
-        camera_id: cameraId,
-        source_type: 'Live',
-        results: mlResults.vehicles,
-        metadata: {
-          count: mlResults.vehicles ? mlResults.vehicles.length : 0,
-          timestamp: timestamp || new Date().toISOString()
+    // 1.5. Resolve Camera ID to UUID
+    let actualCameraId = cameraId;
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    
+    if (!uuidRegex.test(actualCameraId)) {
+      const { data: existingCam } = await supabase.from('cameras').select('id').eq('name', cameraId).single();
+      if (existingCam?.id) {
+        actualCameraId = existingCam.id;
+      } else {
+        const { data: newCam } = await supabase.from('cameras').insert({ name: cameraId, location: 'Virtual', status: 'Online' }).select('id').single();
+        if (newCam?.id) {
+          actualCameraId = newCam.id;
+        } else {
+          actualCameraId = null; // Couldn't resolve, skip logging
         }
-      });
-
-    if (logError) {
-      console.warn('Failed to log detections to DB:', logError.message);
+      }
     }
 
-    // 3. Update Camera Heartbeat
-    await supabase
-      .from('cameras')
-      .update({ 
-        status: 'Online', 
-        last_heartbeat: new Date().toISOString() 
-      })
-      .eq('id', cameraId);
+    // 2. Log detection to database (if valid UUID)
+    if (actualCameraId) {
+      const { error: logError } = await supabase
+        .from('camera_detections')
+        .insert({
+          camera_id: actualCameraId,
+          source_type: 'Live',
+          results: mlResults.vehicles,
+          metadata: {
+            count: mlResults.vehicles ? mlResults.vehicles.length : 0,
+            timestamp: timestamp || new Date().toISOString()
+          }
+        });
+
+      if (logError) {
+        console.warn('Failed to log detections to DB:', logError.message);
+      }
+
+      // 3. Update Camera Heartbeat
+      await supabase
+        .from('cameras')
+        .update({ 
+          status: 'Online', 
+          last_heartbeat: new Date().toISOString() 
+        })
+        .eq('id', actualCameraId);
+    }
 
     res.json(mlResults);
   } catch (error: any) {
