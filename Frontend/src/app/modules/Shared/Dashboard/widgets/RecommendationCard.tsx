@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { Box, Typography, Button, CircularProgress, Paper, Divider, Stack } from '@mui/material';
-import { Sparkles, MapPin, Navigation, Info } from 'lucide-react';
+import { Sparkles, Navigation, Info } from 'lucide-react';
 import { api } from '@services/api';
 
 const RecommendationCard: React.FC = () => {
