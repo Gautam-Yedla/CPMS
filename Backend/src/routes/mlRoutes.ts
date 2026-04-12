@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { MLBridgeService } from '../services/mlBridge.js';
+import { MLConfigController } from '../controllers/mlConfigController.js';
+import { PredictiveController } from '../controllers/predictiveController.js';
 
 const router = Router();
 
@@ -101,5 +103,11 @@ router.get('/status', authMiddleware, async (req: any, res) => {
     });
   }
 });
+
+// GET /api/ml/sync-layout/:cameraId - Global dynamic layout sync
+router.get('/sync-layout/:cameraId', authMiddleware, MLConfigController.getLayout);
+
+// GET /api/ml/predict - Predict future occupancy
+router.get('/predict', authMiddleware, PredictiveController.getCampusPredictions);
 
 export default router;

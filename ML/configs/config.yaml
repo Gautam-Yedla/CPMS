@@ -30,7 +30,7 @@ preprocessing:
 
 # Model Configuration
 model:
-  path: "models/checkpoints/vehicles/yolo11l.pt" # YOLO v11 Large for highest accuracy
+  path: "yolo11n.pt" # Standardized to YOLOv11 Nano for efficiency and accuracy
   device: "cpu" # or "cpu" if no GPU available
   conf_threshold: 0.25 
   iou_threshold: 0.45
@@ -45,7 +45,7 @@ model:
 
 # Parking Slot Detection Model (Optional Dual-Model)
 parking_model:
-  path: "models/checkpoints/parking-slots/PK-best.pt" # Train this model to detect empty/occupied parking slots directly
+  path: "yolov8n.pt" # Standardized to YOLOv8 Nano for parking slot detection
   device: "cpu"
   conf_threshold: 0.25
   iou_threshold: 0.45

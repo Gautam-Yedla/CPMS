@@ -1,0 +1,83 @@
+[
+    {
+        "image": "IMG-20260304-WA0045.jpg",
+        "v8": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 5193.248748779297
+        },
+        "hybrid_v8": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 5193.248748779297
+        },
+        "v11": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 5060.600280761719
+        },
+        "hybrid_v11": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 5060.600280761719
+        }
+    },
+    {
+        "image": "IMG-20260304-WA0083.jpg",
+        "v8": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 6152.602434158325
+        },
+        "hybrid_v8": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 6152.602434158325
+        },
+        "v11": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 6179.790735244751
+        },
+        "hybrid_v11": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 6179.790735244751
+        }
+    },
+    {
+        "image": "IMG-20260304-WA0166.jpg",
+        "v8": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 4600.36301612854
+        },
+        "hybrid_v8": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 4600.36301612854
+        },
+        "v11": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 4535.411596298218
+        },
+        "hybrid_v11": {
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0,
+            "time": 4535.411596298218
+        }
+    }
+]

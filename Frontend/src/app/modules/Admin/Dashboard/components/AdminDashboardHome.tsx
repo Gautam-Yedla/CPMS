@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@app/utils/services/api';
+import RecommendationCard from '@modules/Shared/Dashboard/widgets/RecommendationCard';
 import ErrorBoundary from '@shared/components/ErrorBoundary';
 
 interface MLZone {
@@ -226,6 +227,7 @@ const AdminDashboardHomeContent: React.FC = () => {
         {/* Quick Actions & System Info */}
         <Grid size={{ xs: 12, md: 5, lg: 4 }}>
           <Stack spacing={isMobile ? 2 : 3} height="100%">
+            <RecommendationCard />
             {/* Action Grid */}
             <Paper 
                 elevation={0}

@@ -213,4 +213,7 @@ export const api = {
   },
 
   seedDatabase: () => request('/auth/seed-test', { method: 'POST' }),
+
+  // Recommendations
+  fetchBestSlotRecommendation: () => request('/recommendation/best-slot'),
 };

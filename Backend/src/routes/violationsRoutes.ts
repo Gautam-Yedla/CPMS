@@ -18,12 +18,17 @@ router.get('/', authMiddleware, checkPermission('fines.view.all'), async (req, r
 
     const { data: violations, error } = await supabase
       .from('violations')
-      .select('*, users(full_name, email)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    res.json(violations);
+    const formattedViolations = violations.map((v: any) => ({
+      ...v,
+      violation_date: v.created_at
+    }));
+
+    res.json(formattedViolations);
   } catch (error: any) {
     console.error('Error fetching violations:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch violations' });
@@ -44,7 +49,12 @@ router.get('/me', authMiddleware, checkPermission('fines.view.own'), async (req:
 
     if (error) throw error;
 
-    res.json(violations);
+    const formattedViolations = violations.map((v: any) => ({
+      ...v,
+      violation_date: v.created_at
+    }));
+
+    res.json(formattedViolations);
   } catch (error: any) {
     console.error('Error fetching my violations:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch your violations' });

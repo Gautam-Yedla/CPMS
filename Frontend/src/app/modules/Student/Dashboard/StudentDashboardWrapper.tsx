@@ -14,6 +14,7 @@ import {
 import { IRootState } from '@app/appReducer';
 
 import { api } from '@utils/services/api';
+import RecommendationCard from '@modules/Shared/Dashboard/widgets/RecommendationCard';
 
 const StudentDashboardWrapper: React.FC = () => {
   const theme = useTheme();
@@ -151,45 +152,48 @@ const StudentDashboardWrapper: React.FC = () => {
         </div>
 
         {/* Quick Actions Card */}
-        <div style={{ 
-          backgroundColor: theme.palette.background.paper, 
-          borderRadius: '12px', 
-          boxShadow: theme.palette.mode === 'light' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
-          border: theme.palette.mode === 'dark' ? `1px solid ${theme.palette.divider}` : 'none',
-          padding: '1.5rem'
-        }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: theme.palette.text.primary, marginBottom: '1rem' }}>Quick Actions</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {[
-              { label: 'Find Parking Spot', icon: <MapPin size={18} />, path: '/student/status' },
-              { label: 'Renew Permit', icon: <CreditCard size={18} />, path: '/student/status' },
-              { label: 'Report an Issue', icon: <AlertCircle size={18} />, path: '/student/report' },
-              { label: 'View My Tickets', icon: <MessageSquare size={18} />, path: '/student/report' },
-            ].map((action, i) => (
-              <button 
-                key={i}
-                onClick={() => navigate(action.path)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '12px',
-                  border: `1px solid ${theme.palette.divider}`,
-                  backgroundColor: theme.palette.background.default,
-                  color: theme.palette.text.secondary,
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  transition: 'all 0.2s'
-                }}
-                className="action-button"
-              >
-                {action.icon}
-                {action.label}
-              </button>
-            ))}
+        <div style={{ display: 'grid', gap: '1.5rem' }}>
+          <RecommendationCard />
+          <div style={{ 
+            backgroundColor: theme.palette.background.paper, 
+            borderRadius: '12px', 
+            boxShadow: theme.palette.mode === 'light' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
+            border: theme.palette.mode === 'dark' ? `1px solid ${theme.palette.divider}` : 'none',
+            padding: '1.5rem'
+          }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: theme.palette.text.primary, marginBottom: '1rem' }}>Quick Actions</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {[
+                { label: 'Find Parking Spot', icon: <MapPin size={18} />, path: '/student/status' },
+                { label: 'Renew Permit', icon: <CreditCard size={18} />, path: '/student/status' },
+                { label: 'Report an Issue', icon: <AlertCircle size={18} />, path: '/student/report' },
+                { label: 'View My Tickets', icon: <MessageSquare size={18} />, path: '/student/report' },
+              ].map((action, i) => (
+                <button 
+                  key={i}
+                  onClick={() => navigate(action.path)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '12px',
+                    border: `1px solid ${theme.palette.divider}`,
+                    backgroundColor: theme.palette.background.default,
+                    color: theme.palette.text.secondary,
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    transition: 'all 0.2s'
+                  }}
+                  className="action-button"
+                >
+                  {action.icon}
+                  {action.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

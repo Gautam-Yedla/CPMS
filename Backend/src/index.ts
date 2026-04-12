@@ -17,6 +17,8 @@ import streamRoutes from './routes/streamRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import supportRoutes from './routes/supportRoutes.js';
 import violationsRoutes from './routes/violationsRoutes.js';
+import recommendationRoutes from './routes/recommendationRoutes.js';
+import { ViolationService } from './services/violationService.js';
 
 dotenv.config();
 
@@ -42,6 +44,7 @@ app.use('/api/stream', streamRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/violations', violationsRoutes);
+app.use('/api/recommendation', recommendationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -54,6 +57,17 @@ app.get('/', (req, res) => {
 if (process.env.NODE_ENV !== 'production') {
   app.listen(port, () => {
     console.log(`[server]: Server is running at http://localhost:${port}`);
+    
+    // Boot Automated Background Worker
+    console.log(`[worker]: Starting Automated Violation Engine...`);
+    // Run an initial scan after 5 seconds to catch up
+    setTimeout(() => {
+        ViolationService.scanAndEnforce();
+    }, 5000);
+    // Recurring scheduled scan every 15 minutes (900,000 ms)
+    setInterval(() => {
+        ViolationService.scanAndEnforce();
+    }, 900000);
   });
 }
 
