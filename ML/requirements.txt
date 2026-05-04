@@ -1,7 +1,7 @@
 # Core Dependencies (Vercel Compatible)
+# Optimized for Vercel 500MB limit by excluding heavy ML libraries (torch, ultralytics)
 opencv-python-headless
 numpy
-pandas
 pyyaml
 shapely
 google-genai
@@ -9,4 +9,3 @@ python-dotenv
 flask
 flask-cors
 Pillow
-ultralytics

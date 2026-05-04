@@ -1,0 +1,13 @@
+venv/
+.venv/
+data/
+data.zip
+results/
+models/checkpoints/
+*.pt
+*.zip
+*.png
+*.jpg
+*.mp4
+__pycache__/
+.env
